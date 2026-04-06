@@ -100,6 +100,27 @@
             background: #000000;
         }
         
+        body.dark-mode .progress-bar-container {
+            background: #262626;
+        }
+        
+        /* Verified Badges */
+        .verified-badge-blue {
+            color: #1D9BF0;
+            font-size: 14px;
+            margin-right: 4px;
+            display: inline-flex;
+            align-items: center;
+        }
+        
+        .verified-badge-gold {
+            color: #FFD700;
+            font-size: 14px;
+            margin-right: 4px;
+            display: inline-flex;
+            align-items: center;
+        }
+        
         /* Animations */
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
@@ -120,21 +141,17 @@
             to { opacity: 1; transform: scale(1); }
         }
         
+        @keyframes shimmer {
+            0% { background-position: -1000px 0; }
+            100% { background-position: 1000px 0; }
+        }
+        
         .fade-in {
             animation: fadeIn 0.2s ease-out;
         }
         
         .heart-animation {
             animation: heartbeat 0.3s ease-out;
-        }
-        
-        /* Verified Badge */
-        .verified-badge {
-            color: #FFD700;
-            font-size: 16px;
-            margin-right: 4px;
-            display: inline-flex;
-            align-items: center;
         }
         
         /* Scrollbar */
@@ -310,6 +327,37 @@
             background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);
         }
         
+        .story-viewer-user {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: white;
+        }
+        
+        .story-viewer-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            overflow: hidden;
+            background: linear-gradient(135deg, #f58529, #dd2a7b, #8134af);
+        }
+        
+        .story-viewer-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .story-viewer-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .story-viewer-time {
+            font-size: 11px;
+            opacity: 0.7;
+        }
+        
         .story-viewer-close {
             color: white;
             font-size: 24px;
@@ -334,15 +382,54 @@
             top: 0;
             left: 0;
             right: 0;
-            height: 3px;
-            background: rgba(255,255,255,0.3);
+            display: flex;
+            gap: 4px;
+            padding: 8px;
+            z-index: 10;
         }
         
-        .story-viewer-progress-bar {
+        .story-progress-bar {
+            flex: 1;
+            height: 3px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        
+        .story-progress-fill {
             height: 100%;
-            background: #0095f6;
+            background: white;
             width: 0%;
             transition: width 5s linear;
+        }
+        
+        .story-viewer-actions {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            background: linear-gradient(to top, rgba(0,0,0,0.5), transparent);
+        }
+        
+        .story-action {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 28px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .story-action:active {
+            transform: scale(0.9);
+        }
+        
+        .story-action.liked {
+            color: #ed4956;
         }
         
         /* Search Bar */
@@ -622,6 +709,43 @@
             border: 1px solid #262626;
         }
         
+        /* Progress Bar for Upload */
+        .upload-progress-container {
+            margin-top: 12px;
+            display: none;
+        }
+        
+        .upload-progress-container.active {
+            display: block;
+        }
+        
+        .progress-bar-container {
+            width: 100%;
+            height: 6px;
+            background: #EFEFEF;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        body.dark-mode .progress-bar-container {
+            background: #262626;
+        }
+        
+        .progress-bar-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #0095f6, #00c6fb);
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+        
+        .progress-text {
+            font-size: 12px;
+            margin-top: 6px;
+            text-align: center;
+            color: #0095f6;
+        }
+        
         /* Media Viewer (Lightbox) */
         .media-viewer {
             position: fixed;
@@ -759,6 +883,7 @@
             display: flex;
             align-items: center;
             gap: 4px;
+            flex-wrap: wrap;
         }
         
         .profile-bio {
@@ -776,6 +901,7 @@
             display: flex;
             gap: 8px;
             margin-top: 16px;
+            flex-wrap: wrap;
         }
         
         .profile-btn {
@@ -937,6 +1063,13 @@
             color: #FFFFFF;
         }
         
+        .dm-message-image {
+            max-width: 200px;
+            border-radius: 12px;
+            margin-top: 8px;
+            cursor: pointer;
+        }
+        
         .audio-message {
             display: flex;
             align-items: center;
@@ -945,6 +1078,7 @@
         
         .audio-message audio {
             height: 36px;
+            border-radius: 20px;
         }
         
         .dm-input-area {
@@ -1176,6 +1310,26 @@
             border-bottom-color: #262626;
         }
         
+        .verify-blue-btn {
+            background: #1D9BF0;
+            color: white;
+            border: none;
+            padding: 4px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            margin: 0 4px;
+        }
+        
+        .verify-gold-btn {
+            background: #FFD700;
+            color: black;
+            border: none;
+            padding: 4px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            margin: 0 4px;
+        }
+        
         @media (max-width: 480px) {
             .story-ring {
                 width: 56px;
@@ -1250,17 +1404,29 @@
 <!-- Story Viewer -->
 <div id="storyViewer" class="story-viewer">
     <div class="story-viewer-header">
+        <div class="story-viewer-user">
+            <div class="story-viewer-avatar" id="storyViewerAvatar"></div>
+            <div>
+                <div class="story-viewer-name" id="storyViewerName"></div>
+                <div class="story-viewer-time" id="storyViewerTime"></div>
+            </div>
+        </div>
         <div class="story-viewer-close" onclick="closeStoryViewer()">
             <i class="fa-solid fa-xmark"></i>
         </div>
-        <div></div>
     </div>
-    <div class="story-viewer-progress">
-        <div class="story-viewer-progress-bar" id="storyProgressBar"></div>
-    </div>
+    <div class="story-viewer-progress" id="storyProgressContainer"></div>
     <div class="story-viewer-content">
         <img id="storyImage" class="story-viewer-media" style="display: none;">
-        <video id="storyVideo" class="story-viewer-media" controls style="display: none;"></video>
+        <video id="storyVideo" class="story-viewer-media" style="display: none;"></video>
+    </div>
+    <div class="story-viewer-actions">
+        <button class="story-action" id="storyLikeBtn" onclick="likeStory()">
+            <i class="fa-regular fa-heart"></i>
+        </button>
+        <button class="story-action" onclick="sendStoryMessage()">
+            <i class="fa-regular fa-paper-plane"></i>
+        </button>
     </div>
 </div>
 
@@ -1288,6 +1454,12 @@
             <div id="postPreviewArea" style="display: none;">
                 <img id="postPreview" class="create-post-preview" style="display: none;">
                 <video id="postVideoPreview" class="create-post-preview" controls style="display: none;"></video>
+            </div>
+            <div id="uploadProgressContainer" class="upload-progress-container">
+                <div class="progress-bar-container">
+                    <div class="progress-bar-fill" id="uploadProgressFill"></div>
+                </div>
+                <div class="progress-text" id="uploadProgressText">0%</div>
             </div>
             <button class="profile-btn" style="width: 100%; margin-bottom: 12px;" onclick="document.getElementById('postImageInput').click()">
                 <i class="fa-regular fa-image"></i> اختيار صورة
