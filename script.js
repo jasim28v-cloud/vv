@@ -1,13 +1,21 @@
-// ==================== ZAMN - Instagram Clone ====================
+// ==================== ZAMN - Instagram Clone with All Features ====================
 let currentUser = null;
 let currentPostId = null;
+let currentCommentId = null;
 let currentChatUser = null;
 let currentProfileUser = null;
 let selectedPostMedia = null;
 let selectedMediaType = null;
 let currentView = 'home';
-let currentReelIndex = 0;
-let reelsList = [];
+let currentReportPostId = null;
+let selectedReportReason = null;
+let currentStoryId = null;
+let storyProgressInterval = null;
+
+// ==================== Voice Recording Variables ====================
+let mediaRecorder = null;
+let audioChunks = [];
+let isRecording = false;
 
 // ==================== Infinite Scroll ====================
 let allPostsCache = [];
@@ -86,6 +94,35 @@ function loadTheme() {
     }
 }
 
+// ==================== Media Viewer (Lightbox) ====================
+function openMediaViewer(url, type) {
+    const viewer = document.getElementById('mediaViewer');
+    const viewerImage = document.getElementById('viewerImage');
+    const viewerVideo = document.getElementById('viewerVideo');
+    
+    if (type === 'image') {
+        viewerImage.style.display = 'block';
+        viewerVideo.style.display = 'none';
+        viewerImage.src = url;
+        viewerVideo.pause();
+    } else if (type === 'video') {
+        viewerImage.style.display = 'none';
+        viewerVideo.style.display = 'block';
+        viewerVideo.src = url;
+        viewerVideo.load();
+        viewerVideo.play();
+    }
+    
+    viewer.classList.add('open');
+}
+
+function closeMediaViewer() {
+    const viewer = document.getElementById('mediaViewer');
+    const viewerVideo = document.getElementById('viewerVideo');
+    viewerVideo.pause();
+    viewer.classList.remove('open');
+}
+
 // ==================== Upload to Cloudinary ====================
 async function uploadToCloudinary(file) {
     const url = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/upload`;
@@ -102,6 +139,62 @@ async function uploadToCloudinary(file) {
         console.error('Cloudinary error:', error);
         showToast('فشل رفع الملف');
         return null;
+    }
+}
+
+// ==================== Voice Recording ====================
+async function startVoiceRecording() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+        
+        mediaRecorder.ondataavailable = (event) => {
+            audioChunks.push(event.data);
+        };
+        
+        mediaRecorder.onstop = async () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            const audioUrl = await uploadToCloudinary(audioBlob);
+            
+            if (audioUrl && currentChatUser) {
+                const chatId = getChatId(currentUser.uid, currentChatUser.uid);
+                await db.ref(`chats/${chatId}`).push({
+                    senderId: currentUser.uid,
+                    audioUrl: audioUrl,
+                    timestamp: Date.now(),
+                    read: false
+                });
+                showToast('🎤 تم إرسال الرسالة الصوتية');
+                loadChatMessages(currentChatUser.uid);
+            }
+            
+            stream.getTracks().forEach(track => track.stop());
+            document.getElementById('recordingIndicator').style.display = 'none';
+        };
+        
+        mediaRecorder.start();
+        isRecording = true;
+        document.getElementById('recordingIndicator').style.display = 'flex';
+        showToast('🔴 جاري التسجيل... اضغط مرة أخرى للإيقاف');
+    } catch (error) {
+        console.error('Recording error:', error);
+        showToast('❌ لا يمكن الوصول إلى الميكروفون');
+    }
+}
+
+function stopVoiceRecording() {
+    if (mediaRecorder && isRecording) {
+        mediaRecorder.stop();
+        isRecording = false;
+    }
+}
+
+function toggleVoiceRecording() {
+    if (isRecording) {
+        stopVoiceRecording();
+    } else {
+        startVoiceRecording();
     }
 }
 
@@ -148,6 +241,16 @@ function previewPostMedia(input) {
     reader.readAsDataURL(file);
 }
 
+function extractMentions(text) {
+    const mentions = text.match(/@[\w\u0600-\u06FF]+/g) || [];
+    return mentions.map(m => m.substring(1));
+}
+
+function extractHashtags(text) {
+    const hashtags = text.match(/#[\w\u0600-\u06FF]+/g) || [];
+    return hashtags.map(t => t.substring(1));
+}
+
 async function createPost() {
     if (!selectedPostMedia) {
         showToast('⚠️ الرجاء اختيار صورة أو فيديو');
@@ -158,7 +261,8 @@ async function createPost() {
     const mediaUrl = await uploadToCloudinary(selectedPostMedia);
     if (!mediaUrl) return;
     
-    const hashtags = caption.match(/#[\w\u0600-\u06FF]+/g) || [];
+    const mentions = extractMentions(caption);
+    const hashtags = extractHashtags(caption);
     const postRef = db.ref('posts').push();
     
     await postRef.set({
@@ -170,12 +274,32 @@ async function createPost() {
         caption: caption,
         mediaUrl: mediaUrl,
         mediaType: selectedMediaType,
-        hashtags: hashtags.map(t => t.substring(1)),
+        mentions: mentions,
+        hashtags: hashtags,
         likes: {},
+        saves: {},
         comments: {},
         commentsCount: 0,
         timestamp: Date.now()
     });
+    
+    // Send notifications for mentions
+    for (const mention of mentions) {
+        const userSnapshot = await db.ref('users').orderByChild('username').equalTo(mention).once('value');
+        const mentionedUser = userSnapshot.val();
+        if (mentionedUser) {
+            const uid = Object.keys(mentionedUser)[0];
+            await db.ref(`notifications/${uid}`).push({
+                type: 'mention',
+                userId: currentUser.uid,
+                userName: currentUser.name,
+                postId: postRef.key,
+                timestamp: Date.now(),
+                read: false
+            });
+            updateNotificationBadge();
+        }
+    }
     
     document.getElementById('postCaption').value = '';
     selectedPostMedia = null;
@@ -185,8 +309,54 @@ async function createPost() {
     showToast('✅ تم نشر المنشور');
 }
 
-// ==================== Like Post ====================
-async function likePost(postId) {
+// ==================== Save Post ====================
+async function savePost(postId) {
+    const saveRef = db.ref(`saves/${currentUser.uid}/${postId}`);
+    const snapshot = await saveRef.once('value');
+    const wasSaved = snapshot.exists();
+    
+    if (wasSaved) {
+        await saveRef.remove();
+        await db.ref(`posts/${postId}/saves/${currentUser.uid}`).remove();
+        showToast('📌 تم إزالة من المحفوظات');
+    } else {
+        await saveRef.set(true);
+        await db.ref(`posts/${postId}/saves/${currentUser.uid}`).set(true);
+        showToast('💾 تم حفظ المنشور');
+    }
+    refreshFeedCache();
+}
+
+// ==================== Share Post ====================
+async function sharePost(postId) {
+    const postSnapshot = await db.ref(`posts/${postId}`).once('value');
+    const post = postSnapshot.val();
+    const shareRef = db.ref('posts').push();
+    
+    await shareRef.set({
+        id: shareRef.key,
+        userId: currentUser.uid,
+        userName: currentUser.name,
+        userAvatar: currentUser.avatar || "",
+        username: currentUser.username,
+        caption: `شارك منشور: ${post.caption?.substring(0, 100)}`,
+        originalPostId: postId,
+        originalUser: post.userName,
+        mediaUrl: post.mediaUrl,
+        mediaType: post.mediaType,
+        likes: {},
+        saves: {},
+        comments: {},
+        commentsCount: 0,
+        timestamp: Date.now()
+    });
+    
+    showToast('🔄 تمت المشاركة');
+    refreshFeedCache();
+}
+
+// ==================== Like Post (with double click) ====================
+async function likePost(postId, event) {
     const likeRef = db.ref(`posts/${postId}/likes/${currentUser.uid}`);
     const snapshot = await likeRef.once('value');
     const wasLiked = snapshot.exists();
@@ -195,44 +365,70 @@ async function likePost(postId) {
         await likeRef.remove();
     } else {
         await likeRef.set(true);
-        // Add heart animation
-        const likeBtn = document.querySelector(`.post-card[data-post-id="${postId}"] .post-action:first-child`);
-        if (likeBtn) {
-            likeBtn.classList.add('liked');
-            setTimeout(() => likeBtn.classList.remove('liked'), 300);
+        const postSnapshot = await db.ref(`posts/${postId}`).once('value');
+        const post = postSnapshot.val();
+        if (post && post.userId !== currentUser.uid) {
+            await db.ref(`notifications/${post.userId}`).push({
+                type: 'like',
+                userId: currentUser.uid,
+                userName: currentUser.name,
+                postId: postId,
+                timestamp: Date.now(),
+                read: false
+            });
+            updateNotificationBadge();
         }
     }
+    
+    // Update UI without page refresh
+    const postCard = document.querySelector(`.post-card[data-post-id="${postId}"]`);
+    if (postCard) {
+        const likeBtn = postCard.querySelector('.post-actions-left .post-action:first-child');
+        const likesSpan = postCard.querySelector('.post-likes');
+        
+        if (likeBtn) {
+            if (!wasLiked) {
+                likeBtn.classList.add('liked');
+            } else {
+                likeBtn.classList.remove('liked');
+            }
+        }
+        
+        if (likesSpan) {
+            let currentLikes = parseInt(likesSpan.textContent) || 0;
+            currentLikes = wasLiked ? currentLikes - 1 : currentLikes + 1;
+            likesSpan.textContent = formatNumber(currentLikes) + ' إعجاب';
+        }
+    }
+    
+    // Refresh cache in background
     refreshFeedCache();
+}
+
+// Handle double click on post image/video
+function handlePostDoubleClick(postId, event) {
+    event.stopPropagation();
+    likePost(postId, event);
+    
+    // Create heart animation
+    const heart = document.createElement('div');
+    heart.innerHTML = '❤️';
+    heart.style.position = 'fixed';
+    heart.style.left = event.clientX + 'px';
+    heart.style.top = event.clientY + 'px';
+    heart.style.fontSize = '48px';
+    heart.style.color = '#ed4956';
+    heart.style.zIndex = '1000';
+    heart.style.pointerEvents = 'none';
+    heart.style.animation = 'heartbeat 0.3s ease-out';
+    document.body.appendChild(heart);
+    setTimeout(() => heart.remove(), 500);
 }
 
 // ==================== Comments ====================
 async function openComments(postId) {
     currentPostId = postId;
-    const snapshot = await db.ref(`posts/${postId}/comments`).once('value');
-    const comments = snapshot.val();
-    const container = document.getElementById('commentsList');
-    
-    if (!comments) {
-        container.innerHTML = '<div style="text-align: center; padding: 20px; color: #8e8e8e;">لا توجد تعليقات بعد</div>';
-    } else {
-        let html = '';
-        const commentsArray = Object.values(comments).sort((a, b) => b.timestamp - a.timestamp);
-        for (const comment of commentsArray) {
-            html += `
-                <div style="display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid #EFEFEF;">
-                    <div class="post-avatar" style="width: 32px; height: 32px;">
-                        ${comment.userAvatar ? `<img src="${comment.userAvatar}">` : '<i class="fa-solid fa-user"></i>'}
-                    </div>
-                    <div style="flex: 1;">
-                        <div style="font-weight: 600; font-size: 13px;">${escapeHtml(comment.userName)}</div>
-                        <div style="font-size: 13px;">${escapeHtml(comment.text)}</div>
-                        <div style="font-size: 10px; color: #8e8e8e;">${formatTime(comment.timestamp)}</div>
-                    </div>
-                </div>
-            `;
-        }
-        container.innerHTML = html;
-    }
+    await loadComments(postId);
     document.getElementById('commentsModal').classList.add('open');
 }
 
@@ -241,15 +437,90 @@ function closeCommentsModal() {
     currentPostId = null;
 }
 
+async function loadComments(postId) {
+    const snapshot = await db.ref(`posts/${postId}/comments`).once('value');
+    const comments = snapshot.val();
+    const container = document.getElementById('commentsList');
+    
+    if (!comments) {
+        container.innerHTML = '<div style="text-align: center; padding: 20px; color: #8e8e8e;">لا توجد تعليقات بعد</div>';
+        return;
+    }
+    
+    let html = '';
+    const commentsArray = Object.values(comments).sort((a, b) => b.timestamp - a.timestamp);
+    for (const comment of commentsArray) {
+        const userSnapshot = await db.ref(`users/${comment.userId}`).once('value');
+        const user = userSnapshot.val();
+        const isVerified = user?.verified || false;
+        const isOwner = comment.userId === currentUser.uid;
+        
+        html += `
+            <div id="comment-${comment.id}" style="margin-bottom: 16px;">
+                <div style="display: flex; gap: 12px;">
+                    <div class="post-avatar" style="width: 32px; height: 32px;" onclick="openProfile('${comment.userId}')">
+                        ${comment.userAvatar ? `<img src="${comment.userAvatar}">` : '<i class="fa-solid fa-user"></i>'}
+                    </div>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 4px;">
+                            ${escapeHtml(comment.userName)}
+                            ${isVerified ? '<i class="fa-solid fa-circle-check verified-badge" style="font-size: 12px;"></i>' : ''}
+                        </div>
+                        <div style="font-size: 13px;">${escapeHtml(comment.text)}</div>
+                        <div style="font-size: 10px; color: #8e8e8e; display: flex; gap: 12px; margin-top: 4px;">
+                            <span>${formatTime(comment.timestamp)}</span>
+                            <button class="reply-btn" onclick="openReplyModal('${comment.id}')" style="background: none; border: none; color: #8e8e8e; font-size: 10px; cursor: pointer;">رد</button>
+                            ${isOwner ? `<button onclick="deleteComment('${comment.id}')" style="background: none; border: none; color: #ed4956; font-size: 10px; cursor: pointer;">حذف</button>` : ''}
+                        </div>
+                    </div>
+                </div>
+                <div id="replies-${comment.id}" class="reply-thread"></div>
+            </div>
+        `;
+        
+        // Load replies
+        if (comment.replies) {
+            const repliesContainer = document.getElementById(`replies-${comment.id}`);
+            if (repliesContainer) {
+                const repliesArray = Object.values(comment.replies).sort((a, b) => b.timestamp - a.timestamp);
+                for (const reply of repliesArray) {
+                    const replyUserSnapshot = await db.ref(`users/${reply.userId}`).once('value');
+                    const replyUser = replyUserSnapshot.val();
+                    const isReplyVerified = replyUser?.verified || false;
+                    repliesContainer.innerHTML += `
+                        <div style="display: flex; gap: 12px; margin-top: 12px;">
+                            <div class="post-avatar" style="width: 28px; height: 28px;" onclick="openProfile('${reply.userId}')">
+                                ${reply.userAvatar ? `<img src="${reply.userAvatar}">` : '<i class="fa-solid fa-user"></i>'}
+                            </div>
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; font-size: 12px; display: flex; align-items: center; gap: 4px;">
+                                    ${escapeHtml(reply.userName)}
+                                    ${isReplyVerified ? '<i class="fa-solid fa-circle-check verified-badge" style="font-size: 10px;"></i>' : ''}
+                                </div>
+                                <div style="font-size: 12px;">${escapeHtml(reply.text)}</div>
+                                <div style="font-size: 10px; color: #8e8e8e;">${formatTime(reply.timestamp)}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+        }
+    }
+    container.innerHTML = html;
+}
+
 async function addComment() {
     const text = document.getElementById('commentText').value;
     if (!text || !currentPostId) return;
     
-    await db.ref(`posts/${currentPostId}/comments`).push({
+    const commentRef = db.ref(`posts/${currentPostId}/comments`).push();
+    await commentRef.set({
+        id: commentRef.key,
         userId: currentUser.uid,
         userName: currentUser.name,
         userAvatar: currentUser.avatar || "",
         text: text,
+        replies: {},
         timestamp: Date.now()
     });
     
@@ -258,10 +529,326 @@ async function addComment() {
     const post = snapshot.val();
     await postRef.update({ commentsCount: (post.commentsCount || 0) + 1 });
     
+    if (post.userId !== currentUser.uid) {
+        await db.ref(`notifications/${post.userId}`).push({
+            type: 'comment',
+            userId: currentUser.uid,
+            userName: currentUser.name,
+            postId: currentPostId,
+            text: text.substring(0, 50),
+            timestamp: Date.now(),
+            read: false
+        });
+        updateNotificationBadge();
+    }
+    
     document.getElementById('commentText').value = '';
-    await openComments(currentPostId);
+    await loadComments(currentPostId);
     refreshFeedCache();
     showToast('💬 تم إضافة التعليق');
+}
+
+// ==================== Reply to Comment ====================
+let currentReplyCommentId = null;
+
+function openReplyModal(commentId) {
+    currentReplyCommentId = commentId;
+    document.getElementById('replyModal').classList.add('open');
+}
+
+function closeReplyModal() {
+    document.getElementById('replyModal').classList.remove('open');
+    currentReplyCommentId = null;
+    document.getElementById('replyText').value = '';
+}
+
+async function addReply() {
+    const text = document.getElementById('replyText').value;
+    if (!text || !currentPostId || !currentReplyCommentId) return;
+    
+    const replyRef = db.ref(`posts/${currentPostId}/comments/${currentReplyCommentId}/replies`).push();
+    await replyRef.set({
+        userId: currentUser.uid,
+        userName: currentUser.name,
+        userAvatar: currentUser.avatar || "",
+        text: text,
+        timestamp: Date.now()
+    });
+    
+    closeReplyModal();
+    await loadComments(currentPostId);
+    showToast('💬 تم إضافة الرد');
+}
+
+async function deleteComment(commentId) {
+    if (confirm('⚠️ هل أنت متأكد من حذف هذا التعليق؟')) {
+        await db.ref(`posts/${currentPostId}/comments/${commentId}`).remove();
+        await loadComments(currentPostId);
+        showToast('🗑️ تم حذف التعليق');
+    }
+}
+
+// ==================== Report Post ====================
+function openReportModal(postId) {
+    currentReportPostId = postId;
+    selectedReportReason = null;
+    document.querySelectorAll('.report-reason').forEach(el => {
+        el.style.background = '#EFEFEF';
+        el.style.color = '#262626';
+    });
+    document.getElementById('reportModal').classList.add('open');
+}
+
+function selectReportReason(reason) {
+    selectedReportReason = reason;
+    document.querySelectorAll('.report-reason').forEach(el => {
+        if (el.textContent === reason) {
+            el.style.background = '#0095f6';
+            el.style.color = 'white';
+        } else {
+            el.style.background = '#EFEFEF';
+            el.style.color = '#262626';
+        }
+    });
+}
+
+function closeReportModal() {
+    document.getElementById('reportModal').classList.remove('open');
+    currentReportPostId = null;
+    selectedReportReason = null;
+}
+
+async function submitReport() {
+    if (!selectedReportReason || !currentReportPostId) {
+        showToast('الرجاء اختيار سبب الإبلاغ');
+        return;
+    }
+    await db.ref(`reports/${currentReportPostId}`).push({
+        reporterId: currentUser.uid,
+        reporterName: currentUser.name,
+        reason: selectedReportReason,
+        timestamp: Date.now()
+    });
+    showToast('📢 تم إرسال البلاغ، شكراً لك');
+    closeReportModal();
+    if (currentUser.isAdmin) loadAdminReports();
+}
+
+// ==================== Block User ====================
+async function blockUser(userId) {
+    if (confirm('⚠️ هل أنت متأكد من حظر هذا المستخدم؟')) {
+        await db.ref(`blocks/${currentUser.uid}/${userId}`).set(true);
+        showToast('🚫 تم حظر المستخدم');
+        refreshFeedCache();
+        if (currentProfileUser === userId) closeProfile();
+    }
+}
+
+async function unblockUser(userId) {
+    await db.ref(`blocks/${currentUser.uid}/${userId}`).remove();
+    showToast('✅ تم إلغاء حظر المستخدم');
+    refreshFeedCache();
+}
+
+async function isBlocked(userId) {
+    const snapshot = await db.ref(`blocks/${currentUser.uid}/${userId}`).once('value');
+    return snapshot.exists();
+}
+
+// ==================== Search ====================
+async function searchAll() {
+    const query = document.getElementById('searchInput').value.toLowerCase();
+    const searchResults = document.getElementById('searchResults');
+    const feedContainer = document.getElementById('feedContainer');
+    
+    if (!query) {
+        searchResults.style.display = 'none';
+        feedContainer.style.display = 'block';
+        return;
+    }
+    
+    searchResults.style.display = 'block';
+    feedContainer.style.display = 'none';
+    
+    // Search users
+    const usersSnapshot = await db.ref('users').once('value');
+    const users = usersSnapshot.val();
+    let userResults = [];
+    if (users) {
+        userResults = Object.values(users).filter(u => 
+            u.name?.toLowerCase().includes(query) || 
+            u.username?.toLowerCase().includes(query) ||
+            u.email?.toLowerCase().includes(query)
+        );
+    }
+    
+    // Search hashtags
+    const postsSnapshot = await db.ref('posts').once('value');
+    const posts = postsSnapshot.val();
+    let hashtagResults = new Set();
+    if (posts) {
+        Object.values(posts).forEach(post => {
+            if (post.hashtags) {
+                post.hashtags.forEach(tag => {
+                    if (tag.toLowerCase().includes(query)) {
+                        hashtagResults.add(tag);
+                    }
+                });
+            }
+        });
+    }
+    
+    let html = '<div class="search-results">';
+    
+    if (userResults.length > 0) {
+        html += '<div style="font-weight: 600; margin: 12px;">👥 مستخدمين</div>';
+        for (const user of userResults.slice(0, 10)) {
+            const isVerified = user.verified || false;
+            html += `
+                <div class="search-result-item" onclick="openProfile('${user.uid}')">
+                    <div class="post-avatar" style="width: 44px; height: 44px;">
+                        ${user.avatar ? `<img src="${user.avatar}">` : '<i class="fa-solid fa-user"></i>'}
+                    </div>
+                    <div>
+                        <div style="font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                            ${escapeHtml(user.name)}
+                            ${isVerified ? '<i class="fa-solid fa-circle-check verified-badge" style="font-size: 12px;"></i>' : ''}
+                        </div>
+                        <div style="color: #8e8e8e; font-size: 12px;">@${escapeHtml(user.username || user.name)}</div>
+                    </div>
+                </div>
+            `;
+        }
+    }
+    
+    if (hashtagResults.size > 0) {
+        html += '<div style="font-weight: 600; margin: 12px;">🏷️ هاشتاجات</div>';
+        for (const tag of hashtagResults) {
+            html += `
+                <div class="search-result-item" onclick="searchHashtag('${tag}')">
+                    <div class="post-avatar" style="width: 44px; height: 44px; background: #0095f6; display: flex; align-items: center; justify-content: center;">
+                        <i class="fa-solid fa-hashtag" style="color: white;"></i>
+                    </div>
+                    <div>
+                        <div style="font-weight: 600; color: #0095f6;">#${escapeHtml(tag)}</div>
+                    </div>
+                </div>
+            `;
+        }
+    }
+    
+    if (userResults.length === 0 && hashtagResults.size === 0) {
+        html += '<div style="text-align: center; padding: 40px; color: #8e8e8e;">لا توجد نتائج</div>';
+    }
+    
+    html += '</div>';
+    searchResults.innerHTML = html;
+}
+
+async function searchHashtag(tag) {
+    document.getElementById('searchInput').value = `#${tag}`;
+    await searchAll();
+}
+
+async function searchUser(username) {
+    document.getElementById('searchInput').value = username;
+    await searchAll();
+}
+
+// ==================== Notifications ====================
+async function loadNotifications() {
+    if (!currentUser) return;
+    db.ref(`notifications/${currentUser.uid}`).on('value', (snapshot) => {
+        updateNotificationBadge();
+    });
+}
+
+function updateNotificationBadge() {
+    const notifIcon = document.getElementById('notificationsIcon');
+    if (notifIcon) {
+        db.ref(`notifications/${currentUser.uid}`).once('value', (snapshot) => {
+            const notifications = snapshot.val();
+            const existingBadge = notifIcon.querySelector('.notification-badge');
+            if (notifications) {
+                const unread = Object.values(notifications).filter(n => !n.read).length;
+                if (unread > 0) {
+                    if (!existingBadge) {
+                        const badge = document.createElement('div');
+                        badge.className = 'notification-badge';
+                        badge.textContent = unread;
+                        notifIcon.style.position = 'relative';
+                        notifIcon.appendChild(badge);
+                    } else {
+                        existingBadge.textContent = unread;
+                    }
+                } else if (existingBadge) {
+                    existingBadge.remove();
+                }
+            } else if (existingBadge) {
+                existingBadge.remove();
+            }
+        });
+    }
+}
+
+async function openNotifications() {
+    const snapshot = await db.ref(`notifications/${currentUser.uid}`).once('value');
+    const notifications = snapshot.val();
+    const container = document.getElementById('notificationsList');
+    
+    if (!notifications) {
+        container.innerHTML = '<div style="text-align: center; padding: 40px; color: #8e8e8e;">لا توجد إشعارات</div>';
+    } else {
+        let html = '';
+        const sorted = Object.entries(notifications).sort((a, b) => b[1].timestamp - a[1].timestamp);
+        for (const [id, notif] of sorted) {
+            let actionText = '';
+            let icon = '';
+            if (notif.type === 'like') {
+                actionText = 'أعجب بمنشورك';
+                icon = 'fa-heart';
+            } else if (notif.type === 'comment') {
+                actionText = `علق على منشورك: "${notif.text}"`;
+                icon = 'fa-comment';
+            } else if (notif.type === 'mention') {
+                actionText = `أشار إليك في منشور`;
+                icon = 'fa-at';
+            } else if (notif.type === 'follow') {
+                actionText = 'بدأ بمتابعتك';
+                icon = 'fa-user-plus';
+            }
+            
+            html += `
+                <div class="notification-item" onclick="markNotificationRead('${id}'); ${notif.type === 'follow' ? `openProfile('${notif.userId}')` : `openComments('${notif.postId}')`}; closeNotificationsModal();">
+                    <div class="notification-avatar">
+                        <i class="fa-solid ${icon}" style="color: white;"></i>
+                    </div>
+                    <div class="notification-content">
+                        <div class="notification-text"><span style="font-weight: 600;">${escapeHtml(notif.userName)}</span> ${actionText}</div>
+                        <div class="notification-time">${formatTime(notif.timestamp)}</div>
+                    </div>
+                </div>
+            `;
+        }
+        container.innerHTML = html;
+    }
+    
+    document.getElementById('notificationsModal').classList.add('open');
+    
+    const updates = {};
+    for (const id of Object.keys(notifications)) {
+        updates[`notifications/${currentUser.uid}/${id}/read`] = true;
+    }
+    await db.ref().update(updates);
+    updateNotificationBadge();
+}
+
+function closeNotificationsModal() {
+    document.getElementById('notificationsModal').classList.remove('open');
+}
+
+async function markNotificationRead(notifId) {
+    await db.ref(`notifications/${currentUser.uid}/${notifId}`).update({ read: true });
 }
 
 // ==================== Stories ====================
@@ -290,9 +877,9 @@ async function loadStories() {
             if (Date.now() - story.timestamp < 86400000) {
                 const userSnapshot = await db.ref(`users/${story.userId}`).once('value');
                 const user = userSnapshot.val();
-                if (user) {
+                if (user && !await isBlocked(story.userId)) {
                     html += `
-                        <div class="story-item" onclick="viewStory('${id}')">
+                        <div class="story-item" onclick="viewStory('${id}', '${story.userId}')">
                             <div class="story-ring">
                                 <div class="story-avatar">
                                     ${story.mediaType === 'image' ? `<img src="${story.mediaUrl}">` : `<video src="${story.mediaUrl}" style="width:100%;height:100%;object-fit:cover;"></video>`}
@@ -331,8 +918,51 @@ async function addStory() {
     input.click();
 }
 
-function viewStory(storyId) {
-    showToast('📖 مشاهدة القصة - قريباً');
+async function viewStory(storyId, userId) {
+    const storySnapshot = await db.ref(`stories/${storyId}`).once('value');
+    const story = storySnapshot.val();
+    if (!story) return;
+    
+    const userSnapshot = await db.ref(`users/${userId}`).once('value');
+    const user = userSnapshot.val();
+    
+    currentStoryId = storyId;
+    
+    const viewer = document.getElementById('storyViewer');
+    const storyImage = document.getElementById('storyImage');
+    const storyVideo = document.getElementById('storyVideo');
+    const progressBar = document.getElementById('storyProgressBar');
+    
+    if (story.mediaType === 'image') {
+        storyImage.style.display = 'block';
+        storyVideo.style.display = 'none';
+        storyImage.src = story.mediaUrl;
+    } else {
+        storyImage.style.display = 'none';
+        storyVideo.style.display = 'block';
+        storyVideo.src = story.mediaUrl;
+        storyVideo.play();
+    }
+    
+    viewer.classList.add('open');
+    
+    // Auto close after 5 seconds
+    if (storyProgressInterval) clearInterval(storyProgressInterval);
+    progressBar.style.width = '0%';
+    progressBar.style.transition = 'width 5s linear';
+    setTimeout(() => { progressBar.style.width = '100%'; }, 100);
+    
+    setTimeout(() => {
+        closeStoryViewer();
+    }, 5000);
+}
+
+function closeStoryViewer() {
+    const viewer = document.getElementById('storyViewer');
+    const storyVideo = document.getElementById('storyVideo');
+    storyVideo.pause();
+    viewer.classList.remove('open');
+    if (storyProgressInterval) clearInterval(storyProgressInterval);
 }
 
 // ==================== Reels ====================
@@ -341,7 +971,7 @@ async function loadReels() {
     const posts = snapshot.val();
     if (!posts) return;
     
-    reelsList = Object.values(posts).filter(p => p.mediaType === 'video').sort((a, b) => b.timestamp - a.timestamp);
+    const reelsList = Object.values(posts).filter(p => p.mediaType === 'video').sort((a, b) => b.timestamp - a.timestamp);
     const container = document.getElementById('reelsContainer');
     if (!container) return;
     
@@ -352,33 +982,49 @@ async function loadReels() {
     
     let html = '';
     for (const reel of reelsList) {
+        if (await isBlocked(reel.userId)) continue;
+        const userSnapshot = await db.ref(`users/${reel.userId}`).once('value');
+        const user = userSnapshot.val();
+        const isVerified = user?.verified || false;
         const isLiked = reel.likes && reel.likes[currentUser?.uid];
+        const isSaved = reel.saves && reel.saves[currentUser?.uid];
         const likesCount = reel.likes ? Object.keys(reel.likes).length : 0;
+        
         html += `
-            <div class="post-card" style="margin-bottom: 16px;">
+            <div class="post-card" data-post-id="${reel.id}" style="margin-bottom: 16px;">
                 <div class="post-header">
                     <div class="post-user" onclick="openProfile('${reel.userId}')">
                         <div class="post-avatar">
                             ${reel.userAvatar ? `<img src="${reel.userAvatar}">` : '<i class="fa-solid fa-user"></i>'}
                         </div>
                         <div>
-                            <div class="post-username">${escapeHtml(reel.userName)}</div>
+                            <div class="post-name">
+                                ${escapeHtml(reel.userName)}
+                                ${isVerified ? '<i class="fa-solid fa-circle-check verified-badge" style="font-size: 14px;"></i>' : ''}
+                            </div>
                             <div class="post-location">${reel.hashtags ? reel.hashtags[0] ? '#' + reel.hashtags[0] : '' : ''}</div>
                         </div>
                     </div>
-                    <div class="post-menu"><i class="fa-solid fa-ellipsis-vertical"></i></div>
+                    <div class="post-menu" onclick="toggleMenu(event, '${reel.id}')">
+                        <i class="fa-solid fa-ellipsis-vertical"></i>
+                        <div class="menu-dropdown" id="menu-${reel.id}">
+                            ${reel.userId === currentUser.uid ? `<div class="menu-dropdown-item" onclick="deletePost('${reel.id}')">🗑️ حذف</div>` : ''}
+                            ${reel.userId !== currentUser.uid ? `<div class="menu-dropdown-item" onclick="blockUser('${reel.userId}')">🚫 حظر المستخدم</div>` : ''}
+                            ${reel.userId !== currentUser.uid ? `<div class="menu-dropdown-item" onclick="openReportModal('${reel.id}')">🚨 إبلاغ</div>` : ''}
+                        </div>
+                    </div>
                 </div>
-                <video src="${reel.mediaUrl}" class="post-video" controls loop playsinline></video>
+                <video src="${reel.mediaUrl}" class="post-video" controls loop playsinline ondblclick="handlePostDoubleClick('${reel.id}', event)"></video>
                 <div class="post-actions">
                     <div class="post-actions-left">
-                        <button class="post-action ${isLiked ? 'liked' : ''}" onclick="likePost('${reel.id}')"><i class="fa-regular fa-heart"></i></button>
+                        <button class="post-action ${isLiked ? 'liked' : ''}" onclick="likePost('${reel.id}', event)"><i class="fa-regular fa-heart"></i></button>
                         <button class="post-action" onclick="openComments('${reel.id}')"><i class="fa-regular fa-comment"></i></button>
-                        <button class="post-action"><i class="fa-regular fa-paper-plane"></i></button>
+                        <button class="post-action" onclick="sharePost('${reel.id}')"><i class="fa-regular fa-paper-plane"></i></button>
                     </div>
-                    <button class="post-action"><i class="fa-regular fa-bookmark"></i></button>
+                    <button class="post-action ${isSaved ? 'saved' : ''}" onclick="savePost('${reel.id}')"><i class="fa-regular fa-bookmark"></i></button>
                 </div>
                 <div class="post-likes">${formatNumber(likesCount)} إعجاب</div>
-                <div class="post-caption"><span>${escapeHtml(reel.userName)}</span> ${escapeHtml(reel.caption || '')}</div>
+                <div class="post-caption"><span>${escapeHtml(reel.userName)}</span> ${formatCaptionWithMentionsAndHashtags(escapeHtml(reel.caption || ''))}</div>
                 <div class="post-comments" onclick="openComments('${reel.id}')">عرض جميع التعليقات (${reel.commentsCount || 0})</div>
             </div>
         `;
@@ -401,8 +1047,9 @@ async function loadExplore() {
     let html = '';
     const postsArray = Object.values(posts).sort((a, b) => b.timestamp - a.timestamp);
     for (const post of postsArray.slice(0, 30)) {
+        if (await isBlocked(post.userId)) continue;
         html += `
-            <div class="grid-item" onclick="viewPost('${post.id}')">
+            <div class="grid-item" onclick="openComments('${post.id}')">
                 ${post.mediaType === 'image' ? 
                     `<img src="${post.mediaUrl}" loading="lazy">` : 
                     `<video src="${post.mediaUrl}" style="width:100%;height:100%;object-fit:cover;"></video>`
@@ -413,16 +1060,17 @@ async function loadExplore() {
     container.innerHTML = html;
 }
 
-function viewPost(postId) {
-    showToast('📱 عرض المنشور - قريباً');
-}
-
 // ==================== Profile ====================
 async function openMyProfile() {
     if (currentUser) openProfile(currentUser.uid);
 }
 
 async function openProfile(userId) {
+    if (await isBlocked(userId)) {
+        showToast('🚫 لا يمكنك عرض هذا الملف');
+        return;
+    }
+    
     currentProfileUser = userId;
     const snapshot = await db.ref(`users/${userId}`).once('value');
     const user = snapshot.val();
@@ -439,6 +1087,8 @@ async function openProfile(userId) {
     
     const isFollowing = await checkIfFollowing(userId);
     const isOwner = userId === currentUser.uid;
+    const isUserBlocked = await isBlocked(userId);
+    const isVerified = user.verified || false;
     
     const profileHtml = `
         <div class="profile-header">
@@ -446,7 +1096,10 @@ async function openProfile(userId) {
                 ${user.avatar ? `<img src="${user.avatar}">` : '<i class="fa-solid fa-user fa-3x" style="margin: 25px;"></i>'}
             </div>
             <div class="profile-info">
-                <div class="profile-name">${escapeHtml(user.name)}</div>
+                <div class="profile-name">
+                    ${escapeHtml(user.name)}
+                    ${isVerified ? '<i class="fa-solid fa-circle-check verified-badge" style="font-size: 18px;"></i>' : ''}
+                </div>
                 <div class="profile-stats">
                     <div class="profile-stat" onclick="openUserPosts('${userId}')">
                         <div class="profile-stat-number">${userPosts}</div>
@@ -466,7 +1119,9 @@ async function openProfile(userId) {
                 <div class="profile-buttons">
                     ${!isOwner ? `<button class="profile-btn ${isFollowing ? '' : 'profile-btn-primary'}" onclick="toggleFollow('${userId}')">${isFollowing ? 'متابَع' : 'متابعة'}</button>` : ''}
                     ${!isOwner ? `<button class="profile-btn" onclick="openChat('${userId}')">رسالة</button>` : ''}
+                    ${!isOwner ? `<button class="profile-btn" onclick="blockUser('${userId}')" style="color: #ed4956;">${isUserBlocked ? 'إلغاء الحظر' : 'حظر'}</button>` : ''}
                     ${isOwner ? `<button class="profile-btn" onclick="openEditProfile()">تعديل الملف</button>` : ''}
+                    ${isOwner ? `<button class="profile-btn profile-logout-btn" onclick="logout()">تسجيل الخروج</button>` : ''}
                     ${currentUser.isAdmin && !isOwner ? `<button class="profile-btn" onclick="deleteUser('${userId}')" style="color: #ed4956;">حذف</button>` : ''}
                 </div>
             </div>
@@ -474,7 +1129,7 @@ async function openProfile(userId) {
         <div class="profile-tabs">
             <button class="profile-tab active" onclick="loadUserPosts('${userId}')"><i class="fa-solid fa-table-cells-large"></i></button>
             <button class="profile-tab" onclick="loadUserReels('${userId}')"><i class="fa-solid fa-clapperboard"></i></button>
-            <button class="profile-tab" onclick="loadUserTags('${userId}')"><i class="fa-regular fa-bookmark"></i></button>
+            <button class="profile-tab" onclick="loadUserSaved('${userId}')"><i class="fa-regular fa-bookmark"></i></button>
         </div>
         <div id="userPostsGrid" class="profile-grid"></div>
     `;
@@ -500,7 +1155,7 @@ async function loadUserPosts(userId) {
     let html = '';
     for (const post of userPosts.slice(0, 12)) {
         html += `
-            <div class="grid-item" onclick="viewPost('${post.id}')">
+            <div class="grid-item" onclick="openComments('${post.id}')">
                 ${post.mediaType === 'image' ? 
                     `<img src="${post.mediaUrl}" loading="lazy">` : 
                     `<video src="${post.mediaUrl}" style="width:100%;height:100%;object-fit:cover;"></video>`
@@ -523,7 +1178,7 @@ async function loadUserReels(userId) {
     let html = '';
     for (const reel of userReels.slice(0, 12)) {
         html += `
-            <div class="grid-item" onclick="viewPost('${reel.id}')">
+            <div class="grid-item" onclick="openComments('${reel.id}')">
                 <video src="${reel.mediaUrl}" style="width:100%;height:100%;object-fit:cover;"></video>
             </div>
         `;
@@ -531,8 +1186,35 @@ async function loadUserReels(userId) {
     document.getElementById('userPostsGrid').innerHTML = html || '<div style="text-align: center; padding: 40px;">لا توجد ريلز</div>';
 }
 
-function loadUserTags(userId) {
-    document.getElementById('userPostsGrid').innerHTML = '<div style="text-align: center; padding: 40px;">لا توجد علامات</div>';
+async function loadUserSaved(userId) {
+    if (userId !== currentUser.uid) {
+        document.getElementById('userPostsGrid').innerHTML = '<div style="text-align: center; padding: 40px;">هذا الملف خاص</div>';
+        return;
+    }
+    
+    const savesSnapshot = await db.ref(`saves/${currentUser.uid}`).once('value');
+    const saves = savesSnapshot.val();
+    if (!saves) {
+        document.getElementById('userPostsGrid').innerHTML = '<div style="text-align: center; padding: 40px;">لا توجد منشورات محفوظة</div>';
+        return;
+    }
+    
+    let html = '';
+    for (const postId of Object.keys(saves)) {
+        const postSnapshot = await db.ref(`posts/${postId}`).once('value');
+        const post = postSnapshot.val();
+        if (post) {
+            html += `
+                <div class="grid-item" onclick="openComments('${post.id}')">
+                    ${post.mediaType === 'image' ? 
+                        `<img src="${post.mediaUrl}" loading="lazy">` : 
+                        `<video src="${post.mediaUrl}" style="width:100%;height:100%;object-fit:cover;"></video>`
+                    }
+                </div>
+            `;
+        }
+    }
+    document.getElementById('userPostsGrid').innerHTML = html || '<div style="text-align: center; padding: 40px;">لا توجد منشورات محفوظة</div>';
 }
 
 function openUserPosts(userId) {
@@ -586,6 +1268,14 @@ async function toggleFollow(userId) {
         await db.ref(`followers/${userId}/${currentUser.uid}`).set(true);
         await db.ref(`following/${currentUser.uid}/${userId}`).set(true);
         showToast('✅ تم المتابعة');
+        await db.ref(`notifications/${userId}`).push({
+            type: 'follow',
+            userId: currentUser.uid,
+            userName: currentUser.name,
+            timestamp: Date.now(),
+            read: false
+        });
+        updateNotificationBadge();
     }
     openProfile(userId);
 }
@@ -609,14 +1299,18 @@ async function openFollowersList(type, userId) {
     for (const uid of Object.keys(data)) {
         const userSnapshot = await db.ref(`users/${uid}`).once('value');
         const user = userSnapshot.val();
-        if (user) {
+        if (user && !await isBlocked(uid)) {
+            const isVerified = user.verified || false;
             html += `
-                <div class="follower-item" onclick="openProfile('${uid}'); this.closest('.modal-overlay').remove();" style="display: flex; align-items: center; gap: 12px; padding: 12px; cursor: pointer; border-bottom: 1px solid #EFEFEF;">
-                    <div class="post-avatar" style="width: 40px; height: 40px;">
+                <div class="search-result-item" onclick="openProfile('${uid}'); this.closest('.modal-overlay').remove();">
+                    <div class="post-avatar" style="width: 44px; height: 44px;">
                         ${user.avatar ? `<img src="${user.avatar}">` : '<i class="fa-solid fa-user"></i>'}
                     </div>
                     <div>
-                        <div style="font-weight: 600;">${escapeHtml(user.name)}</div>
+                        <div style="font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                            ${escapeHtml(user.name)}
+                            ${isVerified ? '<i class="fa-solid fa-circle-check verified-badge" style="font-size: 12px;"></i>' : ''}
+                        </div>
                         <div style="color: #8e8e8e; font-size: 12px;">@${escapeHtml(user.username || user.name)}</div>
                     </div>
                 </div>
@@ -643,6 +1337,7 @@ async function openConversations() {
         for (const [chatId, messages] of Object.entries(chats)) {
             const [user1, user2] = chatId.split('_');
             const otherUserId = user1 === currentUser.uid ? user2 : user1;
+            if (await isBlocked(otherUserId)) continue;
             const userSnapshot = await db.ref(`users/${otherUserId}`).once('value');
             const userData = userSnapshot.val();
             const messagesArray = Object.values(messages);
@@ -653,14 +1348,18 @@ async function openConversations() {
         
         let html = '';
         for (const conv of conversations) {
+            const isVerified = conv.userData?.verified || false;
             html += `
-                <div class="follower-item" onclick="openChat('${conv.userId}')" style="display: flex; align-items: center; gap: 12px; padding: 12px; cursor: pointer; border-bottom: 1px solid #EFEFEF;">
+                <div class="search-result-item" onclick="openChat('${conv.userId}')">
                     <div class="post-avatar" style="width: 44px; height: 44px;">
                         ${conv.userData?.avatar ? `<img src="${conv.userData.avatar}">` : '<i class="fa-solid fa-user"></i>'}
                     </div>
                     <div style="flex: 1;">
-                        <div style="font-weight: 600;">${escapeHtml(conv.userData?.name || 'مستخدم')}</div>
-                        <div style="font-size: 12px; color: #8e8e8e;">${conv.lastMessage.text ? conv.lastMessage.text.substring(0, 30) : (conv.lastMessage.imageUrl ? 'صورة' : '')}</div>
+                        <div style="font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                            ${escapeHtml(conv.userData?.name || 'مستخدم')}
+                            ${isVerified ? '<i class="fa-solid fa-circle-check verified-badge" style="font-size: 12px;"></i>' : ''}
+                        </div>
+                        <div style="font-size: 12px; color: #8e8e8e;">${conv.lastMessage.text ? conv.lastMessage.text.substring(0, 30) : (conv.lastMessage.imageUrl ? 'صورة' : (conv.lastMessage.audioUrl ? 'رسالة صوتية' : ''))}</div>
                     </div>
                 </div>
             `;
@@ -675,6 +1374,10 @@ function closeConversations() {
 }
 
 async function openChat(userId) {
+    if (await isBlocked(userId)) {
+        showToast('🚫 لا يمكنك مراسلة هذا المستخدم');
+        return;
+    }
     const snapshot = await db.ref(`users/${userId}`).once('value');
     currentChatUser = snapshot.val();
     document.getElementById('chatUserName').innerHTML = escapeHtml(currentChatUser.name);
@@ -690,6 +1393,7 @@ function closeChat() {
         db.ref(`chats/${chatId}`).off();
     }
     currentChatUser = null;
+    if (isRecording) stopVoiceRecording();
 }
 
 function getChatId(user1, user2) {
@@ -714,7 +1418,8 @@ async function loadChatMessages(userId) {
             html += `
                 <div class="dm-message ${isSent ? 'sent' : 'received'}">
                     ${msg.text ? escapeHtml(msg.text) : ''}
-                    ${msg.imageUrl ? `<img src="${msg.imageUrl}" style="max-width: 200px; border-radius: 12px; margin-top: 8px;">` : ''}
+                    ${msg.imageUrl ? `<img src="${msg.imageUrl}" style="max-width: 200px; border-radius: 12px; margin-top: 8px; cursor: pointer;" onclick="openMediaViewer('${msg.imageUrl}', 'image')">` : ''}
+                    ${msg.audioUrl ? `<audio controls src="${msg.audioUrl}" style="height: 36px;"></audio>` : ''}
                 </div>
             `;
         }
@@ -740,14 +1445,21 @@ async function sendChatImage(input) {
             const chatId = getChatId(currentUser.uid, currentChatUser.uid);
             await db.ref(`chats/${chatId}`).push({ senderId: currentUser.uid, imageUrl: url, timestamp: Date.now() });
             showToast('✅ تم إرسال الصورة');
+            loadChatMessages(currentChatUser.uid);
         }
     }
     input.value = '';
 }
 
-// ==================== Notifications ====================
-function openNotifications() {
-    showToast('🔔 الإشعارات - قريباً');
+// ==================== Delete Post ====================
+async function deletePost(postId) {
+    if (confirm('⚠️ هل أنت متأكد من حذف هذا المنشور؟')) {
+        await db.ref(`posts/${postId}`).remove();
+        await refreshFeedCache();
+        if (currentView === 'reels') loadReels();
+        if (currentProfileUser) loadUserPosts(currentProfileUser);
+        showToast('🗑️ تم حذف المنشور');
+    }
 }
 
 // ==================== Bad Words Management ====================
@@ -820,13 +1532,20 @@ async function openAdminPanel() {
     if (usersSnapshot.exists()) {
         for (const [uid, user] of Object.entries(usersSnapshot.val())) {
             if (uid !== currentUser.uid) {
+                const isVerified = user.verified || false;
                 usersHtml += `
                     <div class="admin-item">
                         <div>
-                            <div style="font-weight: 600;">${escapeHtml(user.name)}</div>
+                            <div style="font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                                ${escapeHtml(user.name)}
+                                ${isVerified ? '<i class="fa-solid fa-circle-check verified-badge" style="font-size: 12px;"></i>' : ''}
+                            </div>
                             <div style="font-size: 12px; color: #8e8e8e;">${escapeHtml(user.email)}</div>
                         </div>
-                        <button class="profile-btn" onclick="deleteUser('${uid}')" style="background: #ed4956; color: white; padding: 4px 12px;">حذف</button>
+                        <div>
+                            <button class="profile-btn" onclick="verifyUser('${uid}')" style="background: #FFD700; color: black; padding: 4px 12px;">✅ توثيق</button>
+                            <button class="profile-btn" onclick="deleteUser('${uid}')" style="background: #ed4956; color: white; padding: 4px 12px;">حذف</button>
+                        </div>
                     </div>
                 `;
             }
@@ -834,11 +1553,47 @@ async function openAdminPanel() {
     }
     document.getElementById('adminUsersList').innerHTML = usersHtml || '<div style="padding: 12px; color: #8e8e8e;">لا يوجد مستخدمين</div>';
     
+    await loadAdminReports();
     document.getElementById('adminPanel').classList.add('open');
 }
 
 function closeAdmin() {
     document.getElementById('adminPanel').classList.remove('open');
+}
+
+async function verifyUser(userId) {
+    await db.ref(`users/${userId}`).update({ verified: true });
+    showToast('✅ تم توثيق المستخدم');
+    if (currentProfileUser === userId) openProfile(userId);
+    refreshFeedCache();
+    openAdminPanel();
+}
+
+async function loadAdminReports() {
+    const reportsSnapshot = await db.ref('reports').once('value');
+    const reports = reportsSnapshot.val();
+    const container = document.getElementById('adminReportsList');
+    if (!container) return;
+    
+    if (!reports) {
+        container.innerHTML = '<div style="padding: 12px; color: #8e8e8e;">لا توجد بلاغات</div>';
+        return;
+    }
+    
+    let html = '';
+    for (const [postId, postReports] of Object.entries(reports)) {
+        const reportCount = Object.keys(postReports).length;
+        html += `
+            <div class="admin-item">
+                <div>
+                    <div style="font-weight: 600;">منشور: ${postId.substring(0, 8)}...</div>
+                    <div style="font-size: 12px; color: #8e8e8e;">${reportCount} بلاغ</div>
+                </div>
+                <button class="profile-btn" onclick="deletePost('${postId}')" style="background: #ed4956; color: white; padding: 4px 12px;">حذف المنشور</button>
+            </div>
+        `;
+    }
+    container.innerHTML = html;
 }
 
 async function deleteUser(userId) {
@@ -883,6 +1638,28 @@ function closeCreatePost() {
     document.getElementById('postPreviewArea').style.display = 'none';
 }
 
+// ==================== Menu Dropdown ====================
+function toggleMenu(event, postId) {
+    event.stopPropagation();
+    const menu = document.getElementById(`menu-${postId}`);
+    document.querySelectorAll('.menu-dropdown').forEach(m => {
+        if (m.id !== `menu-${postId}`) m.classList.remove('show');
+    });
+    menu.classList.toggle('show');
+}
+
+document.addEventListener('click', () => {
+    document.querySelectorAll('.menu-dropdown').forEach(m => m.classList.remove('show'));
+});
+
+// ==================== Format Caption ====================
+function formatCaptionWithMentionsAndHashtags(caption) {
+    let formatted = caption;
+    formatted = formatted.replace(/@(\w+)/g, '<span class="post-mention" onclick="searchUser(\'$1\')">@$1</span>');
+    formatted = formatted.replace(/#(\w+)/g, '<span class="post-hashtag" onclick="searchHashtag(\'$1\')">#$1</span>');
+    return formatted;
+}
+
 // ==================== Infinite Scroll ====================
 async function loadAllPostsToCache() {
     const feedContainer = document.getElementById('feedContainer');
@@ -898,6 +1675,10 @@ async function loadAllPostsToCache() {
     }
     
     let postsArray = Object.values(posts).sort((a, b) => b.timestamp - a.timestamp);
+    
+    const blockedUsers = await getBlockedUsers();
+    postsArray = postsArray.filter(post => !blockedUsers.includes(post.userId));
+    
     allPostsCache = postsArray;
     hasMorePosts = allPostsCache.length > POSTS_PER_BATCH;
     currentDisplayCount = POSTS_PER_BATCH;
@@ -906,6 +1687,12 @@ async function loadAllPostsToCache() {
     await displayPosts(0, POSTS_PER_BATCH);
     
     if (scrollListenerActive) setupSmoothScrollListener();
+}
+
+async function getBlockedUsers() {
+    const snapshot = await db.ref(`blocks/${currentUser.uid}`).once('value');
+    const blocks = snapshot.val();
+    return blocks ? Object.keys(blocks) : [];
 }
 
 async function displayPosts(startIndex, count) {
@@ -945,16 +1732,14 @@ async function displayPosts(startIndex, count) {
 async function createPostCard(post) {
     const userSnapshot = await db.ref(`users/${post.userId}`).once('value');
     const user = userSnapshot.val();
+    const isVerified = user?.verified || false;
     const isLiked = post.likes && post.likes[currentUser?.uid];
+    const isSaved = post.saves && post.saves[currentUser?.uid];
     const likesCount = post.likes ? Object.keys(post.likes).length : 0;
+    const isOwner = post.userId === currentUser?.uid;
     
     let formattedCaption = escapeHtml(post.caption || '');
-    if (post.hashtags) {
-        post.hashtags.forEach(tag => {
-            const regex = new RegExp(`#${tag}`, 'gi');
-            formattedCaption = formattedCaption.replace(regex, `<span class="post-hashtag" onclick="searchHashtag('${tag}')">#${tag}</span>`);
-        });
-    }
+    formattedCaption = formatCaptionWithMentionsAndHashtags(formattedCaption);
     
     return `
         <div class="post-card fade-in" data-post-id="${post.id}">
@@ -964,23 +1749,33 @@ async function createPostCard(post) {
                         ${post.userAvatar ? `<img src="${post.userAvatar}">` : '<i class="fa-solid fa-user"></i>'}
                     </div>
                     <div>
-                        <div class="post-username">${escapeHtml(post.userName)}</div>
+                        <div class="post-name">
+                            ${escapeHtml(post.userName)}
+                            ${isVerified ? '<i class="fa-solid fa-circle-check verified-badge" style="font-size: 14px;"></i>' : ''}
+                        </div>
                         <div class="post-location">${post.hashtags ? post.hashtags[0] ? '#' + post.hashtags[0] : '' : ''}</div>
                     </div>
                 </div>
-                <div class="post-menu"><i class="fa-solid fa-ellipsis-vertical"></i></div>
+                <div class="post-menu" onclick="toggleMenu(event, '${post.id}')">
+                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                    <div class="menu-dropdown" id="menu-${post.id}">
+                        ${isOwner ? `<div class="menu-dropdown-item" onclick="deletePost('${post.id}')">🗑️ حذف</div>` : ''}
+                        ${!isOwner ? `<div class="menu-dropdown-item" onclick="blockUser('${post.userId}')">🚫 حظر المستخدم</div>` : ''}
+                        ${!isOwner ? `<div class="menu-dropdown-item" onclick="openReportModal('${post.id}')">🚨 إبلاغ</div>` : ''}
+                    </div>
+                </div>
             </div>
             ${post.mediaType === 'image' ? 
-                `<img src="${post.mediaUrl}" class="post-image" onclick="viewPost('${post.id}')">` : 
-                `<video src="${post.mediaUrl}" class="post-video" controls loop playsinline onclick="this.paused ? this.play() : this.pause()"></video>`
+                `<img src="${post.mediaUrl}" class="post-image" onclick="openMediaViewer('${post.mediaUrl}', 'image')" ondblclick="handlePostDoubleClick('${post.id}', event)">` : 
+                `<video src="${post.mediaUrl}" class="post-video" controls loop playsinline onclick="this.paused ? this.play() : this.pause()" ondblclick="handlePostDoubleClick('${post.id}', event)"></video>`
             }
             <div class="post-actions">
                 <div class="post-actions-left">
-                    <button class="post-action ${isLiked ? 'liked' : ''}" onclick="likePost('${post.id}')"><i class="fa-regular fa-heart"></i></button>
+                    <button class="post-action ${isLiked ? 'liked' : ''}" onclick="likePost('${post.id}', event)"><i class="fa-regular fa-heart"></i></button>
                     <button class="post-action" onclick="openComments('${post.id}')"><i class="fa-regular fa-comment"></i></button>
-                    <button class="post-action"><i class="fa-regular fa-paper-plane"></i></button>
+                    <button class="post-action" onclick="sharePost('${post.id}')"><i class="fa-regular fa-paper-plane"></i></button>
                 </div>
-                <button class="post-action"><i class="fa-regular fa-bookmark"></i></button>
+                <button class="post-action ${isSaved ? 'saved' : ''}" onclick="savePost('${post.id}')"><i class="fa-regular fa-bookmark"></i></button>
             </div>
             <div class="post-likes">${formatNumber(likesCount)} إعجاب</div>
             <div class="post-caption"><span>${escapeHtml(post.userName)}</span> ${formattedCaption}</div>
@@ -1035,6 +1830,8 @@ async function refreshFeedCache() {
         return;
     }
     let postsArray = Object.values(posts).sort((a, b) => b.timestamp - a.timestamp);
+    const blockedUsers = await getBlockedUsers();
+    postsArray = postsArray.filter(post => !blockedUsers.includes(post.userId));
     allPostsCache = postsArray;
     hasMorePosts = allPostsCache.length > POSTS_PER_BATCH;
     currentDisplayCount = Math.min(POSTS_PER_BATCH, allPostsCache.length);
@@ -1098,14 +1895,19 @@ auth.onAuthStateChanged(async (user) => {
         await loadFeed();
         await loadStories();
         loadTheme();
+        loadNotifications();
         
-        // Show admin panel button if admin
+        // Show admin button if admin
         if (currentUser.isAdmin) {
-            const adminBtn = document.createElement('button');
-            adminBtn.className = 'nav-item';
-            adminBtn.innerHTML = '<i class="fa-solid fa-screwdriver-wrench"></i>';
-            adminBtn.onclick = () => openAdminPanel();
-            document.querySelector('.bottom-nav').appendChild(adminBtn);
+            const bottomNav = document.querySelector('.bottom-nav');
+            if (!document.getElementById('adminNavBtn')) {
+                const adminBtn = document.createElement('button');
+                adminBtn.id = 'adminNavBtn';
+                adminBtn.className = 'nav-item';
+                adminBtn.innerHTML = '<i class="fa-solid fa-screwdriver-wrench"></i>';
+                adminBtn.onclick = () => openAdminPanel();
+                bottomNav.appendChild(adminBtn);
+            }
         }
     } else {
         window.location.href = 'auth.html';
