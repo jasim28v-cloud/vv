@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>ZAMN | منصة مشاركة الصور والفيديوهات</title>
-    <meta name="theme-color" content="#FFFFFF">
+    <title>ZAMN | تسجيل الدخول</title>
+    <meta name="theme-color" content="#000000">
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,1020 +27,360 @@
             font-family: 'Inter', sans-serif;
             background: #FFFFFF;
             color: #262626;
-            overflow-x: hidden;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
-        /* Dark Mode */
         body.dark-mode {
             background: #000000;
             color: #FFFFFF;
         }
         
-        body.dark-mode .header {
-            background: #000000;
-            border-bottom-color: #262626;
-        }
-        
-        body.dark-mode .story-ring {
-            background: #262626;
-        }
-        
-        body.dark-mode .post-card {
-            background: #000000;
-            border-bottom-color: #262626;
-        }
-        
-        body.dark-mode .comment-input {
-            background: #121212;
-            border-top-color: #262626;
-        }
-        
-        body.dark-mode .comment-input input {
-            background: #121212;
-            color: #FFFFFF;
-        }
-        
-        body.dark-mode .modal-content {
-            background: #000000;
-            border-color: #262626;
-        }
-        
-        body.dark-mode .profile-header {
-            border-bottom-color: #262626;
-        }
-        
-        body.dark-mode .profile-tab {
-            color: #8e8e8e;
-        }
-        
-        body.dark-mode .profile-tab.active {
-            color: #0095f6;
-            border-top-color: #0095f6;
-        }
-        
-        body.dark-mode .dm-message.sent {
-            background: #0095f6;
-        }
-        
-        body.dark-mode .dm-message.received {
-            background: #262626;
-        }
-        
-        /* Animations */
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        @keyframes heartbeat {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.2); }
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
-        .fade-in {
-            animation: fadeIn 0.2s ease-out;
-        }
-        
-        .heart-animation {
-            animation: heartbeat 0.3s ease-out;
-        }
-        
-        /* Scrollbar */
-        ::-webkit-scrollbar {
-            width: 4px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: #EFEFEF;
-            border-radius: 10px;
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: #0095f6;
-            border-radius: 10px;
-        }
-        
-        body.dark-mode ::-webkit-scrollbar-track {
-            background: #262626;
-        }
-        
-        /* Main Container */
-        .main-container {
-            max-width: 600px;
+        .auth-container {
+            width: 100%;
+            max-width: 400px;
             margin: 0 auto;
-            padding-bottom: 70px;
-        }
-        
-        /* Header */
-        .header {
-            position: sticky;
-            top: 0;
-            background: #FFFFFF;
-            border-bottom: 1px solid #EFEFEF;
-            padding: 12px 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 100;
-        }
-        
-        body.dark-mode .header {
-            background: #000000;
-            border-bottom-color: #262626;
+            padding: 20px;
         }
         
         .logo {
-            font-size: 24px;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .logo h1 {
+            font-size: 48px;
             font-weight: 800;
             background: linear-gradient(135deg, #f58529, #dd2a7b, #8134af);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
         
-        .header-icons {
-            display: flex;
-            gap: 20px;
-        }
-        
-        .header-icon {
-            font-size: 24px;
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-        
-        .header-icon:active {
-            transform: scale(0.95);
-        }
-        
-        /* Stories */
-        .stories-container {
-            padding: 12px 16px;
-            border-bottom: 1px solid #EFEFEF;
-            overflow-x: auto;
-            white-space: nowrap;
-            scrollbar-width: none;
-        }
-        
-        body.dark-mode .stories-container {
-            border-bottom-color: #262626;
-        }
-        
-        .stories-container::-webkit-scrollbar {
-            display: none;
-        }
-        
-        .story-item {
-            display: inline-flex;
-            flex-direction: column;
-            align-items: center;
-            margin-left: 16px;
-            cursor: pointer;
-        }
-        
-        .story-ring {
-            width: 66px;
-            height: 66px;
-            border-radius: 50%;
-            background: linear-gradient(45deg, #f58529, #dd2a7b, #8134af);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 6px;
-        }
-        
-        .story-avatar {
-            width: 62px;
-            height: 62px;
-            border-radius: 50%;
-            background: #FFFFFF;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-        }
-        
-        body.dark-mode .story-avatar {
-            background: #000000;
-        }
-        
-        .story-avatar img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        
-        .story-name {
-            font-size: 12px;
-            color: #8e8e8e;
-        }
-        
-        /* Post Card */
-        .post-card {
-            background: #FFFFFF;
-            border-bottom: 1px solid #EFEFEF;
-            margin-bottom: 0;
-        }
-        
-        body.dark-mode .post-card {
-            background: #000000;
-            border-bottom-color: #262626;
-        }
-        
-        .post-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 12px 16px;
-        }
-        
-        .post-user {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            cursor: pointer;
-        }
-        
-        .post-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            overflow: hidden;
-            background: linear-gradient(135deg, #f58529, #dd2a7b, #8134af);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .post-avatar img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        
-        .post-username {
-            font-weight: 600;
-            font-size: 14px;
-        }
-        
-        .post-location {
-            font-size: 11px;
-            color: #8e8e8e;
-        }
-        
-        .post-menu {
-            cursor: pointer;
-            font-size: 18px;
-        }
-        
-        .post-image {
-            width: 100%;
-            max-height: 500px;
-            object-fit: cover;
-            cursor: pointer;
-        }
-        
-        .post-video {
-            width: 100%;
-            max-height: 500px;
-            object-fit: cover;
-        }
-        
-        .post-actions {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 16px;
-        }
-        
-        .post-actions-left {
-            display: flex;
-            gap: 16px;
-        }
-        
-        .post-action {
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-        
-        .post-action:active {
-            transform: scale(0.9);
-        }
-        
-        .post-action.liked {
-            color: #ed4956;
-        }
-        
-        .post-likes {
-            font-weight: 600;
-            font-size: 13px;
-            padding: 0 16px 8px;
-        }
-        
-        .post-caption {
-            padding: 0 16px 8px;
-            font-size: 14px;
-        }
-        
-        .post-caption span {
-            font-weight: 600;
-            cursor: pointer;
-        }
-        
-        .post-hashtag {
-            color: #0095f6;
-            cursor: pointer;
-        }
-        
-        .post-comments {
-            padding: 0 16px 8px;
-            font-size: 13px;
-            color: #8e8e8e;
-            cursor: pointer;
-        }
-        
-        .post-time {
-            padding: 0 16px 8px;
-            font-size: 10px;
-            color: #8e8e8e;
-        }
-        
-        /* Comment Input */
-        .comment-input {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px 16px;
-            border-top: 1px solid #EFEFEF;
-        }
-        
-        body.dark-mode .comment-input {
-            border-top-color: #262626;
-        }
-        
-        .comment-input input {
-            flex: 1;
-            border: none;
-            outline: none;
-            font-size: 14px;
-            background: transparent;
-        }
-        
-        .comment-input button {
-            background: none;
-            border: none;
-            color: #0095f6;
-            font-weight: 600;
-            cursor: pointer;
-        }
-        
-        /* Modal */
-        .modal-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.8);
-            z-index: 200;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.2s;
-        }
-        
-        .modal-overlay.open {
-            opacity: 1;
-            visibility: visible;
-        }
-        
-        .modal-content {
+        .auth-card {
             background: #FFFFFF;
             border-radius: 20px;
-            width: 90%;
-            max-width: 500px;
-            max-height: 80vh;
-            overflow-y: auto;
-            padding: 20px;
+            padding: 30px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
         
-        body.dark-mode .modal-content {
+        body.dark-mode .auth-card {
             background: #000000;
             border: 1px solid #262626;
         }
         
-        /* Create Post Modal */
-        .create-post-area {
-            text-align: center;
+        .auth-form {
+            display: none;
         }
         
-        .create-post-preview {
-            max-width: 100%;
-            max-height: 300px;
-            margin: 16px 0;
-            border-radius: 12px;
+        .auth-form.active {
+            display: block;
+            animation: fadeIn 0.3s ease-out;
         }
         
-        .create-post-input {
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .input-group {
+            margin-bottom: 16px;
+        }
+        
+        .input-group input {
             width: 100%;
-            padding: 12px;
+            padding: 14px 16px;
+            background: #FAFAFA;
             border: 1px solid #DBDBDB;
             border-radius: 12px;
-            resize: none;
+            font-size: 14px;
             font-family: 'Inter', sans-serif;
-            margin-top: 12px;
-        }
-        
-        body.dark-mode .create-post-input {
-            background: #121212;
-            border-color: #262626;
-            color: #FFFFFF;
-        }
-        
-        /* Profile */
-        .profile-header {
-            padding: 20px 16px;
-            display: flex;
-            gap: 24px;
-            border-bottom: 1px solid #EFEFEF;
-        }
-        
-        body.dark-mode .profile-header {
-            border-bottom-color: #262626;
-        }
-        
-        .profile-avatar-large {
-            width: 86px;
-            height: 86px;
-            border-radius: 50%;
-            overflow: hidden;
-            background: linear-gradient(135deg, #f58529, #dd2a7b, #8134af);
-        }
-        
-        .profile-avatar-large img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        
-        .profile-info {
-            flex: 1;
-        }
-        
-        .profile-stats {
-            display: flex;
-            gap: 24px;
-            margin: 12px 0;
-        }
-        
-        .profile-stat {
-            text-align: center;
-            cursor: pointer;
-        }
-        
-        .profile-stat-number {
-            font-weight: 700;
-            font-size: 16px;
-        }
-        
-        .profile-stat-label {
-            font-size: 12px;
-            color: #8e8e8e;
-        }
-        
-        .profile-name {
-            font-weight: 700;
-            font-size: 16px;
-        }
-        
-        .profile-bio {
-            font-size: 13px;
-            margin-top: 4px;
-        }
-        
-        .profile-link {
-            color: #0095f6;
-            text-decoration: none;
-            font-size: 12px;
-        }
-        
-        .profile-buttons {
-            display: flex;
-            gap: 8px;
-            margin-top: 16px;
-        }
-        
-        .profile-btn {
-            flex: 1;
-            padding: 8px;
-            border: 1px solid #DBDBDB;
-            border-radius: 8px;
-            background: none;
-            font-weight: 600;
-            font-size: 13px;
-            cursor: pointer;
             transition: all 0.2s;
         }
         
-        body.dark-mode .profile-btn {
-            border-color: #262626;
-            color: #FFFFFF;
-        }
-        
-        .profile-btn-primary {
-            background: #0095f6;
-            border: none;
-            color: white;
-        }
-        
-        .profile-tabs {
-            display: flex;
-            margin-top: 8px;
-            border-top: 1px solid #EFEFEF;
-        }
-        
-        body.dark-mode .profile-tabs {
-            border-top-color: #262626;
-        }
-        
-        .profile-tab {
-            flex: 1;
-            text-align: center;
-            padding: 12px;
-            background: none;
-            border: none;
-            font-size: 14px;
-            color: #8e8e8e;
-            cursor: pointer;
-        }
-        
-        .profile-tab.active {
-            color: #0095f6;
-            border-top: 2px solid #0095f6;
-            margin-top: -1px;
-        }
-        
-        .profile-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 2px;
-        }
-        
-        .grid-item {
-            aspect-ratio: 1;
-            overflow: hidden;
-            cursor: pointer;
-        }
-        
-        .grid-item img,
-        .grid-item video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        
-        /* Explore */
-        .explore-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 2px;
-            padding: 2px;
-        }
-        
-        /* DM */
-        .dm-header {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            padding: 12px 16px;
-            border-bottom: 1px solid #EFEFEF;
-        }
-        
-        body.dark-mode .dm-header {
-            border-bottom-color: #262626;
-        }
-        
-        .dm-back {
-            cursor: pointer;
-            font-size: 20px;
-        }
-        
-        .dm-messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-        
-        .dm-message {
-            max-width: 70%;
-            padding: 10px 14px;
-            border-radius: 20px;
-            font-size: 14px;
-        }
-        
-        .dm-message.sent {
-            align-self: flex-end;
-            background: #0095f6;
-            color: white;
-        }
-        
-        .dm-message.received {
-            align-self: flex-start;
-            background: #EFEFEF;
-        }
-        
-        body.dark-mode .dm-message.received {
-            background: #262626;
-            color: #FFFFFF;
-        }
-        
-        .dm-input-area {
-            display: flex;
-            gap: 12px;
-            padding: 12px 16px;
-            border-top: 1px solid #EFEFEF;
-        }
-        
-        body.dark-mode .dm-input-area {
-            border-top-color: #262626;
-        }
-        
-        .dm-input {
-            flex: 1;
-            padding: 10px;
-            border: 1px solid #DBDBDB;
-            border-radius: 20px;
-            outline: none;
-        }
-        
-        body.dark-mode .dm-input {
+        body.dark-mode .input-group input {
             background: #121212;
             border-color: #262626;
             color: #FFFFFF;
         }
         
-        /* Toast */
-        #customToast {
-            position: fixed;
-            bottom: 80px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #262626;
+        .input-group input:focus {
+            outline: none;
+            border-color: #0095f6;
+        }
+        
+        .btn-primary {
+            width: 100%;
+            padding: 12px;
+            background: #0095f6;
+            border: none;
+            border-radius: 12px;
             color: white;
-            padding: 10px 20px;
-            border-radius: 40px;
-            z-index: 300;
-            font-size: 13px;
-            opacity: 0;
-            transition: opacity 0.2s;
-            pointer-events: none;
-            white-space: nowrap;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 8px;
         }
         
-        /* Bottom Navigation */
-        .bottom-nav {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: #FFFFFF;
-            border-top: 1px solid #EFEFEF;
+        .btn-primary:hover {
+            background: #0077cc;
+        }
+        
+        .divider {
             display: flex;
-            justify-content: space-around;
-            padding: 10px 0 14px;
-            z-index: 100;
+            align-items: center;
+            gap: 12px;
+            margin: 20px 0;
+            color: #8e8e8e;
+            font-size: 12px;
         }
         
-        body.dark-mode .bottom-nav {
-            background: #000000;
-            border-top-color: #262626;
+        .divider-line {
+            flex: 1;
+            height: 1px;
+            background: #DBDBDB;
         }
         
-        .nav-item {
+        body.dark-mode .divider-line {
+            background: #262626;
+        }
+        
+        .facebook-btn {
+            width: 100%;
+            padding: 12px;
             background: none;
             border: none;
-            font-size: 24px;
-            color: #262626;
+            color: #385185;
+            font-weight: 600;
+            font-size: 14px;
             cursor: pointer;
-            transition: transform 0.2s;
-        }
-        
-        body.dark-mode .nav-item {
-            color: #FFFFFF;
-        }
-        
-        .nav-item:active {
-            transform: scale(0.95);
-        }
-        
-        .nav-item.active {
-            color: #0095f6;
-        }
-        
-        /* Loading */
-        .skeleton-post {
-            padding: 16px;
-        }
-        
-        .skeleton-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: #EFEFEF;
-            animation: pulse 1.5s infinite;
-        }
-        
-        .skeleton-line {
-            height: 12px;
-            background: #EFEFEF;
-            border-radius: 6px;
-            margin: 8px 0;
-            animation: pulse 1.5s infinite;
-        }
-        
-        body.dark-mode .skeleton-avatar,
-        body.dark-mode .skeleton-line {
-            background: #262626;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 0.5; }
-            50% { opacity: 1; }
-        }
-        
-        .load-more-btn {
-            text-align: center;
-            padding: 16px;
-            color: #0095f6;
-            cursor: pointer;
-        }
-        
-        /* Admin Panel */
-        .admin-stats {
             display: flex;
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-        
-        .admin-stat-card {
-            flex: 1;
-            background: linear-gradient(135deg, #f58529, #dd2a7b, #8134af);
-            padding: 16px;
-            border-radius: 16px;
-            text-align: center;
-            color: white;
-        }
-        
-        .admin-stat-number {
-            font-size: 24px;
-            font-weight: 700;
-        }
-        
-        .admin-item {
-            display: flex;
-            justify-content: space-between;
             align-items: center;
-            padding: 12px;
-            border-bottom: 1px solid #EFEFEF;
+            justify-content: center;
+            gap: 8px;
         }
         
-        body.dark-mode .admin-item {
-            border-bottom-color: #262626;
+        body.dark-mode .facebook-btn {
+            color: #0095f6;
+        }
+        
+        .auth-footer {
+            text-align: center;
+            margin-top: 24px;
+            color: #8e8e8e;
+            font-size: 13px;
+        }
+        
+        .auth-footer a {
+            color: #0095f6;
+            text-decoration: none;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        .error-msg {
+            color: #ed4956;
+            font-size: 12px;
+            margin-top: 8px;
+            text-align: center;
+        }
+        
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
         
         @media (max-width: 480px) {
-            .story-ring {
-                width: 56px;
-                height: 56px;
+            .auth-card {
+                padding: 20px;
             }
-            .story-avatar {
-                width: 52px;
-                height: 52px;
-            }
-            .post-action {
-                font-size: 20px;
+            .logo h1 {
+                font-size: 36px;
             }
         }
     </style>
 </head>
 <body>
-
-<!-- Main App -->
-<div id="mainApp" style="display: none;">
-    <!-- Header -->
-    <div class="header">
-        <div class="logo">ZAMN</div>
-        <div class="header-icons">
-            <i class="fa-regular fa-heart header-icon" onclick="openNotifications()"></i>
-            <i class="fa-regular fa-message header-icon" onclick="openConversations()"></i>
-            <i class="fa-regular fa-sun header-icon" onclick="toggleTheme()" id="themeIcon"></i>
+    <div class="auth-container">
+        <div class="logo">
+            <h1>ZAMN</h1>
         </div>
-    </div>
-    
-    <!-- Main Content -->
-    <div id="mainContent">
-        <!-- Home Feed -->
-        <div id="homeView" class="main-container">
-            <!-- Stories -->
-            <div class="stories-container" id="storiesList"></div>
+        
+        <div class="auth-card">
+            <!-- Login Form -->
+            <div id="loginForm" class="auth-form active">
+                <div class="input-group">
+                    <input type="text" id="loginInput" placeholder="رقم الهاتف أو البريد الإلكتروني أو اسم المستخدم">
+                </div>
+                <div class="input-group">
+                    <input type="password" id="loginPassword" placeholder="كلمة السر">
+                </div>
+                <button class="btn-primary" onclick="login()">تسجيل الدخول</button>
+                <div class="divider">
+                    <div class="divider-line"></div>
+                    <span>أو</span>
+                    <div class="divider-line"></div>
+                </div>
+                <button class="facebook-btn" onclick="loginWithFacebook()">
+                    <i class="fa-brands fa-facebook-square"></i>
+                    <span>تسجيل الدخول باستخدام Facebook</span>
+                </button>
+                <div class="auth-footer">
+                    <a onclick="showRegister()">ليس لديك حساب؟ إنشاء حساب</a>
+                </div>
+                <div id="loginMsg" class="error-msg"></div>
+            </div>
             
-            <!-- Posts Feed -->
-            <div id="feedContainer"></div>
+            <!-- Register Form -->
+            <div id="registerForm" class="auth-form">
+                <div class="input-group">
+                    <input type="text" id="regName" placeholder="الاسم الكامل">
+                </div>
+                <div class="input-group">
+                    <input type="email" id="regEmail" placeholder="البريد الإلكتروني">
+                </div>
+                <div class="input-group">
+                    <input type="text" id="regUsername" placeholder="اسم المستخدم">
+                </div>
+                <div class="input-group">
+                    <input type="password" id="regPassword" placeholder="كلمة السر">
+                </div>
+                <button class="btn-primary" onclick="register()">التسجيل</button>
+                <div class="auth-footer">
+                    <a onclick="showLogin()">لديك حساب؟ تسجيل الدخول</a>
+                </div>
+                <div id="regMsg" class="error-msg"></div>
+            </div>
         </div>
     </div>
     
-    <!-- Bottom Navigation -->
-    <div class="bottom-nav">
-        <button class="nav-item active" onclick="switchView('home')">
-            <i class="fa-solid fa-house"></i>
-        </button>
-        <button class="nav-item" onclick="switchView('explore')">
-            <i class="fa-solid fa-magnifying-glass"></i>
-        </button>
-        <button class="nav-item" onclick="openCreatePost()">
-            <i class="fa-regular fa-square-plus"></i>
-        </button>
-        <button class="nav-item" onclick="switchView('reels')">
-            <i class="fa-solid fa-clapperboard"></i>
-        </button>
-        <button class="nav-item" onclick="openMyProfile()">
-            <i class="fa-regular fa-user"></i>
-        </button>
-    </div>
-</div>
-
-<!-- Create Post Modal -->
-<div id="createPostModal" class="modal-overlay">
-    <div class="modal-content">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 style="font-weight: 600;">إنشاء منشور جديد</h3>
-            <button onclick="closeCreatePost()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
-        </div>
-        <div class="create-post-area">
-            <input type="file" id="postImageInput" accept="image/*" style="display:none" onchange="previewPostMedia(this)">
-            <input type="file" id="postVideoInput" accept="video/*" style="display:none" onchange="previewPostMedia(this)">
-            <div id="postPreviewArea" style="display: none;">
-                <img id="postPreview" class="create-post-preview" style="display: none;">
-                <video id="postVideoPreview" class="create-post-preview" controls style="display: none;"></video>
-            </div>
-            <button class="profile-btn" style="width: 100%; margin-bottom: 12px;" onclick="document.getElementById('postImageInput').click()">
-                <i class="fa-regular fa-image"></i> اختيار صورة
-            </button>
-            <button class="profile-btn" style="width: 100%; margin-bottom: 12px;" onclick="document.getElementById('postVideoInput').click()">
-                <i class="fa-solid fa-video"></i> اختيار فيديو
-            </button>
-            <textarea id="postCaption" class="create-post-input" placeholder="اكتب تعليقاً..."></textarea>
-            <button class="profile-btn profile-btn-primary" style="width: 100%; margin-top: 12px;" onclick="createPost()">مشاركة</button>
-        </div>
-    </div>
-</div>
-
-<!-- Comments Modal -->
-<div id="commentsModal" class="modal-overlay">
-    <div class="modal-content">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 style="font-weight: 600;">التعليقات</h3>
-            <button onclick="closeCommentsModal()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
-        </div>
-        <div id="commentsList" style="max-height: 400px; overflow-y: auto; margin-bottom: 16px;"></div>
-        <div class="comment-input">
-            <input type="text" id="commentText" placeholder="أضف تعليقاً...">
-            <button onclick="addComment()">نشر</button>
-        </div>
-    </div>
-</div>
-
-<!-- Profile Modal -->
-<div id="profileModal" class="modal-overlay">
-    <div class="modal-content" style="max-width: 600px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 style="font-weight: 600;">الملف الشخصي</h3>
-            <button onclick="closeProfile()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
-        </div>
-        <div id="profileContent"></div>
-    </div>
-</div>
-
-<!-- Edit Profile Modal -->
-<div id="editProfileModal" class="modal-overlay">
-    <div class="modal-content">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 style="font-weight: 600;">تعديل الملف الشخصي</h3>
-            <button onclick="closeEditProfile()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
-        </div>
-        <div style="text-align: center; margin-bottom: 16px;">
-            <div class="post-avatar" id="editAvatar" onclick="document.getElementById('avatarInput').click()" style="width: 80px; height: 80px; margin: 0 auto;">
-                <i class="fa-solid fa-user"></i>
-            </div>
-        </div>
-        <input type="file" id="avatarInput" accept="image/*" style="display:none" onchange="uploadAvatar(this)">
-        <input type="text" id="editName" class="create-post-input" style="width: 100%; margin-bottom: 12px;" placeholder="الاسم">
-        <input type="text" id="editUsername" class="create-post-input" style="width: 100%; margin-bottom: 12px;" placeholder="اسم المستخدم">
-        <textarea id="editBio" class="create-post-input" style="width: 100%; min-height: 80px; margin-bottom: 12px;" placeholder="السيرة الذاتية"></textarea>
-        <input type="url" id="editWebsite" class="create-post-input" style="width: 100%; margin-bottom: 12px;" placeholder="الموقع الإلكتروني">
-        <div style="display: flex; gap: 12px;">
-            <button class="profile-btn" style="flex: 1;" onclick="closeEditProfile()">إلغاء</button>
-            <button class="profile-btn profile-btn-primary" style="flex: 1;" onclick="saveProfileEdit()">حفظ</button>
-        </div>
-    </div>
-</div>
-
-<!-- Conversations Modal -->
-<div id="conversationsModal" class="modal-overlay">
-    <div class="modal-content">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 style="font-weight: 600;">الرسائل</h3>
-            <button onclick="closeConversations()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
-        </div>
-        <div id="conversationsList"></div>
-    </div>
-</div>
-
-<!-- Chat Modal -->
-<div id="chatModal" class="modal-overlay">
-    <div class="modal-content" style="height: 80vh; display: flex; flex-direction: column;">
-        <div class="dm-header">
-            <i class="fa-solid fa-arrow-right dm-back" onclick="closeChat()"></i>
-            <h3 id="chatUserName" style="font-weight: 600;">محادثة</h3>
-        </div>
-        <div id="chatMessages" class="dm-messages"></div>
-        <div class="dm-input-area">
-            <button class="dm-send" onclick="document.getElementById('chatImageInput').click()" style="background: none; border: none; font-size: 20px; cursor: pointer;">
-                <i class="fa-regular fa-image"></i>
-            </button>
-            <input type="file" id="chatImageInput" accept="image/*" style="display:none" onchange="sendChatImage(this)">
-            <input type="text" id="chatInput" class="dm-input" placeholder="اكتب رسالة...">
-            <button class="profile-btn profile-btn-primary" onclick="sendChatMessage()">إرسال</button>
-        </div>
-    </div>
-</div>
-
-<!-- Explore View -->
-<div id="exploreView" style="display: none;">
-    <div class="main-container">
-        <div class="header" style="position: sticky; top: 0;">
-            <div class="logo">استكشاف</div>
-            <div class="header-icons">
-                <i class="fa-regular fa-heart header-icon"></i>
-                <i class="fa-regular fa-message header-icon"></i>
-            </div>
-        </div>
-        <div id="exploreGrid" class="explore-grid"></div>
-    </div>
-</div>
-
-<!-- Reels View -->
-<div id="reelsView" style="display: none;">
-    <div class="main-container">
-        <div class="header" style="position: sticky; top: 0;">
-            <div class="logo">الريلز</div>
-            <div class="header-icons">
-                <i class="fa-regular fa-heart header-icon"></i>
-                <i class="fa-regular fa-message header-icon"></i>
-            </div>
-        </div>
-        <div id="reelsContainer"></div>
-    </div>
-</div>
-
-<!-- Admin Panel -->
-<div id="adminPanel" class="modal-overlay">
-    <div class="modal-content" style="max-width: 600px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 style="font-weight: 600;">🔧 لوحة التحكم</h3>
-            <button onclick="closeAdmin()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
-        </div>
-        <div class="admin-stats">
-            <div class="admin-stat-card"><div class="admin-stat-number" id="adminUsersCount">0</div><div>مستخدمين</div></div>
-            <div class="admin-stat-card"><div class="admin-stat-number" id="adminPostsCount">0</div><div>منشورات</div></div>
-            <div class="admin-stat-card"><div class="admin-stat-number" id="adminStoriesCount">0</div><div>قصص</div></div>
-        </div>
-        <div style="margin-bottom: 20px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <h4 style="font-weight: 600;">🚫 الكلمات الممنوعة</h4>
-                <button class="profile-btn profile-btn-primary" onclick="showAddBadWordModal()">+ إضافة</button>
-            </div>
-            <div id="adminBadWordsList"></div>
-        </div>
-        <div>
-            <h4 style="font-weight: 600; margin-bottom: 12px;">👥 إدارة المستخدمين</h4>
-            <div id="adminUsersList"></div>
-        </div>
-    </div>
-</div>
-
-<!-- Toast -->
-<div id="customToast"></div>
-
-<script src="firebase-config.js"></script>
-<script src="script.js"></script>
-
+    <script src="firebase-config.js"></script>
+    <script>
+        function showLogin() {
+            document.getElementById('loginForm').classList.add('active');
+            document.getElementById('registerForm').classList.remove('active');
+        }
+        
+        function showRegister() {
+            document.getElementById('loginForm').classList.remove('active');
+            document.getElementById('registerForm').classList.add('active');
+        }
+        
+        async function login() {
+            const input = document.getElementById('loginInput').value;
+            const password = document.getElementById('loginPassword').value;
+            const msgDiv = document.getElementById('loginMsg');
+            
+            if (!input || !password) {
+                msgDiv.textContent = 'الرجاء إدخال جميع الحقول';
+                return;
+            }
+            
+            msgDiv.innerHTML = '<div class="spinner"></div> جاري تسجيل الدخول...';
+            
+            try {
+                let email = input;
+                if (!input.includes('@')) {
+                    const usersSnapshot = await db.ref('users').once('value');
+                    const users = usersSnapshot.val();
+                    if (users) {
+                        const foundUser = Object.values(users).find(u => u.username === input);
+                        if (foundUser) email = foundUser.email;
+                    }
+                }
+                
+                const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                const user = userCredential.user;
+                const snapshot = await db.ref(`users/${user.uid}`).once('value');
+                
+                if (!snapshot.exists()) {
+                    await db.ref(`users/${user.uid}`).set({
+                        uid: user.uid,
+                        name: user.displayName || email.split('@')[0],
+                        username: user.displayName || email.split('@')[0],
+                        email: email,
+                        bio: "",
+                        avatar: "",
+                        website: "",
+                        verified: false,
+                        isAdmin: email === ADMIN_EMAIL,
+                        followers: {},
+                        following: {},
+                        createdAt: Date.now()
+                    });
+                }
+                
+                if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+                    await db.ref(`users/${user.uid}`).update({ isAdmin: true, verified: true });
+                }
+                
+                window.location.href = 'index.html';
+            } catch (error) {
+                msgDiv.textContent = error.message;
+            }
+        }
+        
+        async function register() {
+            const name = document.getElementById('regName').value;
+            const email = document.getElementById('regEmail').value;
+            const username = document.getElementById('regUsername').value;
+            const password = document.getElementById('regPassword').value;
+            const msgDiv = document.getElementById('regMsg');
+            
+            if (!name || !email || !username || !password) {
+                msgDiv.textContent = 'الرجاء ملء جميع الحقول';
+                return;
+            }
+            
+            msgDiv.innerHTML = '<div class="spinner"></div> جاري إنشاء الحساب...';
+            
+            try {
+                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                await userCredential.user.updateProfile({ displayName: name });
+                
+                await db.ref(`users/${userCredential.user.uid}`).set({
+                    uid: userCredential.user.uid,
+                    name: name,
+                    username: username,
+                    email: email,
+                    bio: "",
+                    avatar: "",
+                    website: "",
+                    verified: false,
+                    isAdmin: email === ADMIN_EMAIL,
+                    followers: {},
+                    following: {},
+                    createdAt: Date.now()
+                });
+                
+                window.location.href = 'index.html';
+            } catch (error) {
+                msgDiv.textContent = error.message;
+            }
+        }
+        
+        async function loginWithFacebook() {
+            // Facebook login simulation
+            showToast('Facebook login - قريباً');
+        }
+        
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                window.location.href = 'index.html';
+            }
+        });
+    </script>
 </body>
 </html>
