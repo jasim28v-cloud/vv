@@ -10,7 +10,10 @@ let currentView = 'home';
 let currentReportPostId = null;
 let selectedReportReason = null;
 let currentStoryId = null;
+let currentStoryUserId = null;
 let storyProgressInterval = null;
+let currentStoriesList = [];
+let currentStoryIndex = 0;
 
 // ==================== Voice Recording Variables ====================
 let mediaRecorder = null;
@@ -123,21 +126,54 @@ function closeMediaViewer() {
     viewer.classList.remove('open');
 }
 
-// ==================== Upload to Cloudinary ====================
-async function uploadToCloudinary(file) {
+// ==================== Upload to Cloudinary with Progress ====================
+async function uploadToCloudinary(file, onProgress) {
     const url = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/upload`;
     const formData = new FormData();
     formData.append('file', file);
     formData.append('upload_preset', UPLOAD_PRESET);
     
+    const progressContainer = document.getElementById('uploadProgressContainer');
+    const progressFill = document.getElementById('uploadProgressFill');
+    const progressText = document.getElementById('uploadProgressText');
+    
+    if (progressContainer) {
+        progressContainer.classList.add('active');
+        progressFill.style.width = '0%';
+        progressText.textContent = '0%';
+    }
+    
     try {
+        let progress = 0;
+        const interval = setInterval(() => {
+            if (progress < 90) {
+                progress += 10;
+                if (progressFill) {
+                    progressFill.style.width = progress + '%';
+                    progressText.textContent = progress + '%';
+                }
+            }
+        }, 200);
+        
         const response = await fetch(url, { method: 'POST', body: formData });
+        clearInterval(interval);
+        
         const data = await response.json();
-        if (data.secure_url) return data.secure_url;
+        if (data.secure_url) {
+            if (progressFill) {
+                progressFill.style.width = '100%';
+                progressText.textContent = '100%';
+            }
+            setTimeout(() => {
+                if (progressContainer) progressContainer.classList.remove('active');
+            }, 500);
+            return data.secure_url;
+        }
         throw new Error('Upload failed');
     } catch (error) {
         console.error('Cloudinary error:', error);
         showToast('فشل رفع الملف');
+        if (progressContainer) progressContainer.classList.remove('active');
         return null;
     }
 }
@@ -401,16 +437,13 @@ async function likePost(postId, event) {
         }
     }
     
-    // Refresh cache in background
     refreshFeedCache();
 }
 
-// Handle double click on post image/video
 function handlePostDoubleClick(postId, event) {
     event.stopPropagation();
     likePost(postId, event);
     
-    // Create heart animation
     const heart = document.createElement('div');
     heart.innerHTML = '❤️';
     heart.style.position = 'fixed';
@@ -452,7 +485,8 @@ async function loadComments(postId) {
     for (const comment of commentsArray) {
         const userSnapshot = await db.ref(`users/${comment.userId}`).once('value');
         const user = userSnapshot.val();
-        const isVerified = user?.verified || false;
+        const isVerifiedBlue = user?.verified === 'blue';
+        const isVerifiedGold = user?.verified === 'gold';
         const isOwner = comment.userId === currentUser.uid;
         
         html += `
@@ -462,9 +496,10 @@ async function loadComments(postId) {
                         ${comment.userAvatar ? `<img src="${comment.userAvatar}">` : '<i class="fa-solid fa-user"></i>'}
                     </div>
                     <div style="flex: 1;">
-                        <div style="font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 4px;">
+                        <div style="font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
                             ${escapeHtml(comment.userName)}
-                            ${isVerified ? '<i class="fa-solid fa-circle-check verified-badge" style="font-size: 12px;"></i>' : ''}
+                            ${isVerifiedBlue ? '<i class="fa-solid fa-circle-check verified-badge-blue" style="font-size: 12px;"></i>' : ''}
+                            ${isVerifiedGold ? '<i class="fa-solid fa-circle-check verified-badge-gold" style="font-size: 12px;"></i>' : ''}
                         </div>
                         <div style="font-size: 13px;">${escapeHtml(comment.text)}</div>
                         <div style="font-size: 10px; color: #8e8e8e; display: flex; gap: 12px; margin-top: 4px;">
@@ -478,7 +513,6 @@ async function loadComments(postId) {
             </div>
         `;
         
-        // Load replies
         if (comment.replies) {
             const repliesContainer = document.getElementById(`replies-${comment.id}`);
             if (repliesContainer) {
@@ -486,16 +520,18 @@ async function loadComments(postId) {
                 for (const reply of repliesArray) {
                     const replyUserSnapshot = await db.ref(`users/${reply.userId}`).once('value');
                     const replyUser = replyUserSnapshot.val();
-                    const isReplyVerified = replyUser?.verified || false;
+                    const isReplyBlue = replyUser?.verified === 'blue';
+                    const isReplyGold = replyUser?.verified === 'gold';
                     repliesContainer.innerHTML += `
                         <div style="display: flex; gap: 12px; margin-top: 12px;">
                             <div class="post-avatar" style="width: 28px; height: 28px;" onclick="openProfile('${reply.userId}')">
                                 ${reply.userAvatar ? `<img src="${reply.userAvatar}">` : '<i class="fa-solid fa-user"></i>'}
                             </div>
                             <div style="flex: 1;">
-                                <div style="font-weight: 600; font-size: 12px; display: flex; align-items: center; gap: 4px;">
+                                <div style="font-weight: 600; font-size: 12px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
                                     ${escapeHtml(reply.userName)}
-                                    ${isReplyVerified ? '<i class="fa-solid fa-circle-check verified-badge" style="font-size: 10px;"></i>' : ''}
+                                    ${isReplyBlue ? '<i class="fa-solid fa-circle-check verified-badge-blue" style="font-size: 10px;"></i>' : ''}
+                                    ${isReplyGold ? '<i class="fa-solid fa-circle-check verified-badge-gold" style="font-size: 10px;"></i>' : ''}
                                 </div>
                                 <div style="font-size: 12px;">${escapeHtml(reply.text)}</div>
                                 <div style="font-size: 10px; color: #8e8e8e;">${formatTime(reply.timestamp)}</div>
@@ -526,7 +562,7 @@ async function addComment() {
     
     const postRef = db.ref(`posts/${currentPostId}`);
     const snapshot = await postRef.once('value');
-    const post = snapshot.val();
+    const post = postSnapshot.val();
     await postRef.update({ commentsCount: (post.commentsCount || 0) + 1 });
     
     if (post.userId !== currentUser.uid) {
@@ -670,7 +706,6 @@ async function searchAll() {
     searchResults.style.display = 'block';
     feedContainer.style.display = 'none';
     
-    // Search users
     const usersSnapshot = await db.ref('users').once('value');
     const users = usersSnapshot.val();
     let userResults = [];
@@ -682,7 +717,6 @@ async function searchAll() {
         );
     }
     
-    // Search hashtags
     const postsSnapshot = await db.ref('posts').once('value');
     const posts = postsSnapshot.val();
     let hashtagResults = new Set();
@@ -703,16 +737,18 @@ async function searchAll() {
     if (userResults.length > 0) {
         html += '<div style="font-weight: 600; margin: 12px;">👥 مستخدمين</div>';
         for (const user of userResults.slice(0, 10)) {
-            const isVerified = user.verified || false;
+            const isVerifiedBlue = user.verified === 'blue';
+            const isVerifiedGold = user.verified === 'gold';
             html += `
                 <div class="search-result-item" onclick="openProfile('${user.uid}')">
                     <div class="post-avatar" style="width: 44px; height: 44px;">
                         ${user.avatar ? `<img src="${user.avatar}">` : '<i class="fa-solid fa-user"></i>'}
                     </div>
                     <div>
-                        <div style="font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                        <div style="font-weight: 600; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
                             ${escapeHtml(user.name)}
-                            ${isVerified ? '<i class="fa-solid fa-circle-check verified-badge" style="font-size: 12px;"></i>' : ''}
+                            ${isVerifiedBlue ? '<i class="fa-solid fa-circle-check verified-badge-blue" style="font-size: 12px;"></i>' : ''}
+                            ${isVerifiedGold ? '<i class="fa-solid fa-circle-check verified-badge-gold" style="font-size: 12px;"></i>' : ''}
                         </div>
                         <div style="color: #8e8e8e; font-size: 12px;">@${escapeHtml(user.username || user.name)}</div>
                     </div>
@@ -878,6 +914,8 @@ async function loadStories() {
                 const userSnapshot = await db.ref(`users/${story.userId}`).once('value');
                 const user = userSnapshot.val();
                 if (user && !await isBlocked(story.userId)) {
+                    const isVerifiedBlue = user.verified === 'blue';
+                    const isVerifiedGold = user.verified === 'gold';
                     html += `
                         <div class="story-item" onclick="viewStory('${id}', '${story.userId}')">
                             <div class="story-ring">
@@ -885,7 +923,11 @@ async function loadStories() {
                                     ${story.mediaType === 'image' ? `<img src="${story.mediaUrl}">` : `<video src="${story.mediaUrl}" style="width:100%;height:100%;object-fit:cover;"></video>`}
                                 </div>
                             </div>
-                            <div class="story-name">${escapeHtml(user.name)}</div>
+                            <div class="story-name">
+                                ${escapeHtml(user.name)}
+                                ${isVerifiedBlue ? '<i class="fa-solid fa-circle-check verified-badge-blue" style="font-size: 10px;"></i>' : ''}
+                                ${isVerifiedGold ? '<i class="fa-solid fa-circle-check verified-badge-gold" style="font-size: 10px;"></i>' : ''}
+                            </div>
                         </div>
                     `;
                 }
@@ -926,12 +968,31 @@ async function viewStory(storyId, userId) {
     const userSnapshot = await db.ref(`users/${userId}`).once('value');
     const user = userSnapshot.val();
     
+    // Get all stories from this user
+    const allStoriesSnapshot = await db.ref('stories').once('value');
+    const allStories = allStoriesSnapshot.val();
+    currentStoriesList = [];
+    for (const [id, s] of Object.entries(allStories)) {
+        if (s.userId === userId && Date.now() - s.timestamp < 86400000) {
+            currentStoriesList.push({ id, ...s });
+        }
+    }
+    currentStoriesList.sort((a, b) => a.timestamp - b.timestamp);
+    currentStoryIndex = currentStoriesList.findIndex(s => s.id === storyId);
+    
+    currentStoryUserId = userId;
     currentStoryId = storyId;
     
     const viewer = document.getElementById('storyViewer');
     const storyImage = document.getElementById('storyImage');
     const storyVideo = document.getElementById('storyVideo');
-    const progressBar = document.getElementById('storyProgressBar');
+    const storyViewerAvatar = document.getElementById('storyViewerAvatar');
+    const storyViewerName = document.getElementById('storyViewerName');
+    const storyViewerTime = document.getElementById('storyViewerTime');
+    
+    storyViewerAvatar.innerHTML = user.avatar ? `<img src="${user.avatar}">` : '<i class="fa-solid fa-user"></i>';
+    storyViewerName.innerHTML = escapeHtml(user.name);
+    storyViewerTime.innerHTML = formatTime(story.timestamp);
     
     if (story.mediaType === 'image') {
         storyImage.style.display = 'block';
@@ -944,17 +1005,38 @@ async function viewStory(storyId, userId) {
         storyVideo.play();
     }
     
+    // Create progress bars
+    const progressContainer = document.getElementById('storyProgressContainer');
+    progressContainer.innerHTML = '';
+    currentStoriesList.forEach((s, index) => {
+        const progressBar = document.createElement('div');
+        progressBar.className = 'story-progress-bar';
+        const fill = document.createElement('div');
+        fill.className = 'story-progress-fill';
+        if (index === currentStoryIndex) {
+            fill.style.transition = 'width 5s linear';
+            setTimeout(() => { fill.style.width = '100%'; }, 100);
+        }
+        progressBar.appendChild(fill);
+        progressContainer.appendChild(progressBar);
+    });
+    
     viewer.classList.add('open');
     
-    // Auto close after 5 seconds
     if (storyProgressInterval) clearInterval(storyProgressInterval);
-    progressBar.style.width = '0%';
-    progressBar.style.transition = 'width 5s linear';
-    setTimeout(() => { progressBar.style.width = '100%'; }, 100);
-    
-    setTimeout(() => {
-        closeStoryViewer();
+    storyProgressInterval = setTimeout(() => {
+        nextStory();
     }, 5000);
+}
+
+function nextStory() {
+    if (currentStoryIndex < currentStoriesList.length - 1) {
+        currentStoryIndex++;
+        const nextStory = currentStoriesList[currentStoryIndex];
+        viewStory(nextStory.id, nextStory.userId);
+    } else {
+        closeStoryViewer();
+    }
 }
 
 function closeStoryViewer() {
@@ -963,6 +1045,21 @@ function closeStoryViewer() {
     storyVideo.pause();
     viewer.classList.remove('open');
     if (storyProgressInterval) clearInterval(storyProgressInterval);
+}
+
+function likeStory() {
+    const likeBtn = document.getElementById('storyLikeBtn');
+    likeBtn.classList.toggle('liked');
+    if (likeBtn.classList.contains('liked')) {
+        likeBtn.innerHTML = '<i class="fa-solid fa-heart"></i>';
+        showToast('❤️ تم الإعجاب بالقصة');
+    } else {
+        likeBtn.innerHTML = '<i class="fa-regular fa-heart"></i>';
+    }
+}
+
+function sendStoryMessage() {
+    showToast('💬 أرسل رسالة إلى ${storyViewerName}');
 }
 
 // ==================== Reels ====================
@@ -985,7 +1082,8 @@ async function loadReels() {
         if (await isBlocked(reel.userId)) continue;
         const userSnapshot = await db.ref(`users/${reel.userId}`).once('value');
         const user = userSnapshot.val();
-        const isVerified = user?.verified || false;
+        const isVerifiedBlue = user?.verified === 'blue';
+        const isVerifiedGold = user?.verified === 'gold';
         const isLiked = reel.likes && reel.likes[currentUser?.uid];
         const isSaved = reel.saves && reel.saves[currentUser?.uid];
         const likesCount = reel.likes ? Object.keys(reel.likes).length : 0;
@@ -1000,7 +1098,8 @@ async function loadReels() {
                         <div>
                             <div class="post-name">
                                 ${escapeHtml(reel.userName)}
-                                ${isVerified ? '<i class="fa-solid fa-circle-check verified-badge" style="font-size: 14px;"></i>' : ''}
+                                ${isVerifiedBlue ? '<i class="fa-solid fa-circle-check verified-badge-blue" style="font-size: 14px;"></i>' : ''}
+                                ${isVerifiedGold ? '<i class="fa-solid fa-circle-check verified-badge-gold" style="font-size: 14px;"></i>' : ''}
                             </div>
                             <div class="post-location">${reel.hashtags ? reel.hashtags[0] ? '#' + reel.hashtags[0] : '' : ''}</div>
                         </div>
@@ -1088,7 +1187,8 @@ async function openProfile(userId) {
     const isFollowing = await checkIfFollowing(userId);
     const isOwner = userId === currentUser.uid;
     const isUserBlocked = await isBlocked(userId);
-    const isVerified = user.verified || false;
+    const isVerifiedBlue = user.verified === 'blue';
+    const isVerifiedGold = user.verified === 'gold';
     
     const profileHtml = `
         <div class="profile-header">
@@ -1098,7 +1198,8 @@ async function openProfile(userId) {
             <div class="profile-info">
                 <div class="profile-name">
                     ${escapeHtml(user.name)}
-                    ${isVerified ? '<i class="fa-solid fa-circle-check verified-badge" style="font-size: 18px;"></i>' : ''}
+                    ${isVerifiedBlue ? '<i class="fa-solid fa-circle-check verified-badge-blue" style="font-size: 18px;"></i>' : ''}
+                    ${isVerifiedGold ? '<i class="fa-solid fa-circle-check verified-badge-gold" style="font-size: 18px;"></i>' : ''}
                 </div>
                 <div class="profile-stats">
                     <div class="profile-stat" onclick="openUserPosts('${userId}')">
@@ -1122,6 +1223,8 @@ async function openProfile(userId) {
                     ${!isOwner ? `<button class="profile-btn" onclick="blockUser('${userId}')" style="color: #ed4956;">${isUserBlocked ? 'إلغاء الحظر' : 'حظر'}</button>` : ''}
                     ${isOwner ? `<button class="profile-btn" onclick="openEditProfile()">تعديل الملف</button>` : ''}
                     ${isOwner ? `<button class="profile-btn profile-logout-btn" onclick="logout()">تسجيل الخروج</button>` : ''}
+                    ${currentUser.isAdmin && !isOwner ? `<button class="verify-blue-btn" onclick="verifyUser('${userId}', 'blue')">✅ توثيق أزرق</button>` : ''}
+                    ${currentUser.isAdmin && !isOwner ? `<button class="verify-gold-btn" onclick="verifyUser('${userId}', 'gold')">👑 توثيق ذهبي</button>` : ''}
                     ${currentUser.isAdmin && !isOwner ? `<button class="profile-btn" onclick="deleteUser('${userId}')" style="color: #ed4956;">حذف</button>` : ''}
                 </div>
             </div>
@@ -1300,16 +1403,18 @@ async function openFollowersList(type, userId) {
         const userSnapshot = await db.ref(`users/${uid}`).once('value');
         const user = userSnapshot.val();
         if (user && !await isBlocked(uid)) {
-            const isVerified = user.verified || false;
+            const isVerifiedBlue = user.verified === 'blue';
+            const isVerifiedGold = user.verified === 'gold';
             html += `
                 <div class="search-result-item" onclick="openProfile('${uid}'); this.closest('.modal-overlay').remove();">
                     <div class="post-avatar" style="width: 44px; height: 44px;">
                         ${user.avatar ? `<img src="${user.avatar}">` : '<i class="fa-solid fa-user"></i>'}
                     </div>
                     <div>
-                        <div style="font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                        <div style="font-weight: 600; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
                             ${escapeHtml(user.name)}
-                            ${isVerified ? '<i class="fa-solid fa-circle-check verified-badge" style="font-size: 12px;"></i>' : ''}
+                            ${isVerifiedBlue ? '<i class="fa-solid fa-circle-check verified-badge-blue" style="font-size: 12px;"></i>' : ''}
+                            ${isVerifiedGold ? '<i class="fa-solid fa-circle-check verified-badge-gold" style="font-size: 12px;"></i>' : ''}
                         </div>
                         <div style="color: #8e8e8e; font-size: 12px;">@${escapeHtml(user.username || user.name)}</div>
                     </div>
@@ -1348,16 +1453,18 @@ async function openConversations() {
         
         let html = '';
         for (const conv of conversations) {
-            const isVerified = conv.userData?.verified || false;
+            const isVerifiedBlue = conv.userData?.verified === 'blue';
+            const isVerifiedGold = conv.userData?.verified === 'gold';
             html += `
                 <div class="search-result-item" onclick="openChat('${conv.userId}')">
                     <div class="post-avatar" style="width: 44px; height: 44px;">
                         ${conv.userData?.avatar ? `<img src="${conv.userData.avatar}">` : '<i class="fa-solid fa-user"></i>'}
                     </div>
                     <div style="flex: 1;">
-                        <div style="font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                        <div style="font-weight: 600; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
                             ${escapeHtml(conv.userData?.name || 'مستخدم')}
-                            ${isVerified ? '<i class="fa-solid fa-circle-check verified-badge" style="font-size: 12px;"></i>' : ''}
+                            ${isVerifiedBlue ? '<i class="fa-solid fa-circle-check verified-badge-blue" style="font-size: 12px;"></i>' : ''}
+                            ${isVerifiedGold ? '<i class="fa-solid fa-circle-check verified-badge-gold" style="font-size: 12px;"></i>' : ''}
                         </div>
                         <div style="font-size: 12px; color: #8e8e8e;">${conv.lastMessage.text ? conv.lastMessage.text.substring(0, 30) : (conv.lastMessage.imageUrl ? 'صورة' : (conv.lastMessage.audioUrl ? 'رسالة صوتية' : ''))}</div>
                     </div>
@@ -1418,8 +1525,8 @@ async function loadChatMessages(userId) {
             html += `
                 <div class="dm-message ${isSent ? 'sent' : 'received'}">
                     ${msg.text ? escapeHtml(msg.text) : ''}
-                    ${msg.imageUrl ? `<img src="${msg.imageUrl}" style="max-width: 200px; border-radius: 12px; margin-top: 8px; cursor: pointer;" onclick="openMediaViewer('${msg.imageUrl}', 'image')">` : ''}
-                    ${msg.audioUrl ? `<audio controls src="${msg.audioUrl}" style="height: 36px;"></audio>` : ''}
+                    ${msg.imageUrl ? `<img src="${msg.imageUrl}" class="dm-message-image" onclick="openMediaViewer('${msg.imageUrl}', 'image')">` : ''}
+                    ${msg.audioUrl ? `<div class="audio-message"><i class="fa-solid fa-headphones"></i><audio controls src="${msg.audioUrl}"></audio></div>` : ''}
                 </div>
             `;
         }
@@ -1532,18 +1639,21 @@ async function openAdminPanel() {
     if (usersSnapshot.exists()) {
         for (const [uid, user] of Object.entries(usersSnapshot.val())) {
             if (uid !== currentUser.uid) {
-                const isVerified = user.verified || false;
+                const isVerifiedBlue = user.verified === 'blue';
+                const isVerifiedGold = user.verified === 'gold';
                 usersHtml += `
                     <div class="admin-item">
                         <div>
-                            <div style="font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                            <div style="font-weight: 600; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
                                 ${escapeHtml(user.name)}
-                                ${isVerified ? '<i class="fa-solid fa-circle-check verified-badge" style="font-size: 12px;"></i>' : ''}
+                                ${isVerifiedBlue ? '<i class="fa-solid fa-circle-check verified-badge-blue" style="font-size: 12px;"></i>' : ''}
+                                ${isVerifiedGold ? '<i class="fa-solid fa-circle-check verified-badge-gold" style="font-size: 12px;"></i>' : ''}
                             </div>
                             <div style="font-size: 12px; color: #8e8e8e;">${escapeHtml(user.email)}</div>
                         </div>
                         <div>
-                            <button class="profile-btn" onclick="verifyUser('${uid}')" style="background: #FFD700; color: black; padding: 4px 12px;">✅ توثيق</button>
+                            <button class="verify-blue-btn" onclick="verifyUser('${uid}', 'blue')">✅ توثيق أزرق</button>
+                            <button class="verify-gold-btn" onclick="verifyUser('${uid}', 'gold')">👑 توثيق ذهبي</button>
                             <button class="profile-btn" onclick="deleteUser('${uid}')" style="background: #ed4956; color: white; padding: 4px 12px;">حذف</button>
                         </div>
                     </div>
@@ -1561,9 +1671,9 @@ function closeAdmin() {
     document.getElementById('adminPanel').classList.remove('open');
 }
 
-async function verifyUser(userId) {
-    await db.ref(`users/${userId}`).update({ verified: true });
-    showToast('✅ تم توثيق المستخدم');
+async function verifyUser(userId, type) {
+    await db.ref(`users/${userId}`).update({ verified: type });
+    showToast(`✅ تم توثيق المستخدم ${type === 'blue' ? 'بعلامة زرقاء' : 'بعلامة ذهبية'}`);
     if (currentProfileUser === userId) openProfile(userId);
     refreshFeedCache();
     openAdminPanel();
@@ -1636,6 +1746,8 @@ function closeCreatePost() {
     document.getElementById('postCaption').value = '';
     selectedPostMedia = null;
     document.getElementById('postPreviewArea').style.display = 'none';
+    const progressContainer = document.getElementById('uploadProgressContainer');
+    if (progressContainer) progressContainer.classList.remove('active');
 }
 
 // ==================== Menu Dropdown ====================
@@ -1732,7 +1844,8 @@ async function displayPosts(startIndex, count) {
 async function createPostCard(post) {
     const userSnapshot = await db.ref(`users/${post.userId}`).once('value');
     const user = userSnapshot.val();
-    const isVerified = user?.verified || false;
+    const isVerifiedBlue = user?.verified === 'blue';
+    const isVerifiedGold = user?.verified === 'gold';
     const isLiked = post.likes && post.likes[currentUser?.uid];
     const isSaved = post.saves && post.saves[currentUser?.uid];
     const likesCount = post.likes ? Object.keys(post.likes).length : 0;
@@ -1751,7 +1864,8 @@ async function createPostCard(post) {
                     <div>
                         <div class="post-name">
                             ${escapeHtml(post.userName)}
-                            ${isVerified ? '<i class="fa-solid fa-circle-check verified-badge" style="font-size: 14px;"></i>' : ''}
+                            ${isVerifiedBlue ? '<i class="fa-solid fa-circle-check verified-badge-blue" style="font-size: 14px;"></i>' : ''}
+                            ${isVerifiedGold ? '<i class="fa-solid fa-circle-check verified-badge-gold" style="font-size: 14px;"></i>' : ''}
                         </div>
                         <div class="post-location">${post.hashtags ? post.hashtags[0] ? '#' + post.hashtags[0] : '' : ''}</div>
                     </div>
