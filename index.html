@@ -86,6 +86,20 @@
             background: #262626;
         }
         
+        body.dark-mode .search-input {
+            background: #121212;
+            border-color: #262626;
+            color: #FFFFFF;
+        }
+        
+        body.dark-mode .notification-item {
+            border-bottom-color: #262626;
+        }
+        
+        body.dark-mode .story-viewer {
+            background: #000000;
+        }
+        
         /* Animations */
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
@@ -101,12 +115,26 @@
             to { transform: rotate(360deg); }
         }
         
+        @keyframes zoomIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        
         .fade-in {
             animation: fadeIn 0.2s ease-out;
         }
         
         .heart-animation {
             animation: heartbeat 0.3s ease-out;
+        }
+        
+        /* Verified Badge */
+        .verified-badge {
+            color: #FFD700;
+            font-size: 16px;
+            margin-right: 4px;
+            display: inline-flex;
+            align-items: center;
         }
         
         /* Scrollbar */
@@ -170,10 +198,23 @@
             font-size: 24px;
             cursor: pointer;
             transition: transform 0.2s;
+            position: relative;
         }
         
         .header-icon:active {
             transform: scale(0.95);
+        }
+        
+        .notification-badge {
+            position: absolute;
+            top: -8px;
+            right: -10px;
+            background: #ed4956;
+            color: white;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 20px;
         }
         
         /* Stories */
@@ -238,6 +279,92 @@
             color: #8e8e8e;
         }
         
+        /* Story Viewer */
+        .story-viewer {
+            position: fixed;
+            inset: 0;
+            background: #000000;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .story-viewer.open {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .story-viewer-header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);
+        }
+        
+        .story-viewer-close {
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+        }
+        
+        .story-viewer-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .story-viewer-media {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        
+        .story-viewer-progress {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .story-viewer-progress-bar {
+            height: 100%;
+            background: #0095f6;
+            width: 0%;
+            transition: width 5s linear;
+        }
+        
+        /* Search Bar */
+        .search-bar {
+            padding: 12px 16px;
+            border-bottom: 1px solid #EFEFEF;
+        }
+        
+        body.dark-mode .search-bar {
+            border-bottom-color: #262626;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: #EFEFEF;
+            border: none;
+            border-radius: 12px;
+            font-size: 14px;
+            outline: none;
+        }
+        
         /* Post Card */
         .post-card {
             background: #FFFFFF;
@@ -281,7 +408,10 @@
             object-fit: cover;
         }
         
-        .post-username {
+        .post-name {
+            display: flex;
+            align-items: center;
+            gap: 4px;
             font-weight: 600;
             font-size: 14px;
         }
@@ -294,6 +424,44 @@
         .post-menu {
             cursor: pointer;
             font-size: 18px;
+            position: relative;
+        }
+        
+        .menu-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: #FFFFFF;
+            border: 1px solid #EFEFEF;
+            border-radius: 12px;
+            padding: 8px 0;
+            min-width: 180px;
+            z-index: 100;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        body.dark-mode .menu-dropdown {
+            background: #000000;
+            border-color: #262626;
+        }
+        
+        .menu-dropdown.show {
+            display: block;
+        }
+        
+        .menu-dropdown-item {
+            padding: 10px 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .menu-dropdown-item:hover {
+            background: #EFEFEF;
+        }
+        
+        body.dark-mode .menu-dropdown-item:hover {
+            background: #262626;
         }
         
         .post-image {
@@ -336,6 +504,10 @@
             color: #ed4956;
         }
         
+        .post-action.saved {
+            color: #0095f6;
+        }
+        
         .post-likes {
             font-weight: 600;
             font-size: 13px;
@@ -353,6 +525,11 @@
         }
         
         .post-hashtag {
+            color: #0095f6;
+            cursor: pointer;
+        }
+        
+        .post-mention {
             color: #0095f6;
             cursor: pointer;
         }
@@ -399,6 +576,18 @@
             cursor: pointer;
         }
         
+        /* Reply Thread */
+        .reply-thread {
+            margin-right: 44px;
+            margin-top: 8px;
+            padding-right: 12px;
+            border-right: 2px solid #EFEFEF;
+        }
+        
+        body.dark-mode .reply-thread {
+            border-right-color: #262626;
+        }
+        
         /* Modal */
         .modal-overlay {
             position: fixed;
@@ -431,6 +620,58 @@
         body.dark-mode .modal-content {
             background: #000000;
             border: 1px solid #262626;
+        }
+        
+        /* Media Viewer (Lightbox) */
+        .media-viewer {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(20px);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .media-viewer.open {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .media-viewer-content {
+            max-width: 90%;
+            max-height: 90%;
+            animation: zoomIn 0.2s ease-out;
+        }
+        
+        .media-viewer-content img,
+        .media-viewer-content video {
+            max-width: 100%;
+            max-height: 90vh;
+            object-fit: contain;
+            border-radius: 16px;
+        }
+        
+        .media-viewer-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 44px;
+            height: 44px;
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: white;
+            font-size: 24px;
+            transition: all 0.2s;
         }
         
         /* Create Post Modal */
@@ -515,6 +756,9 @@
         .profile-name {
             font-weight: 700;
             font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
         
         .profile-bio {
@@ -553,6 +797,12 @@
         
         .profile-btn-primary {
             background: #0095f6;
+            border: none;
+            color: white;
+        }
+        
+        .profile-logout-btn {
+            background: #ed4956;
             border: none;
             color: white;
         }
@@ -603,12 +853,38 @@
             object-fit: cover;
         }
         
-        /* Explore */
+        /* Explore Grid */
         .explore-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 2px;
             padding: 2px;
+        }
+        
+        /* Search Results */
+        .search-results {
+            padding: 12px;
+        }
+        
+        .search-result-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #EFEFEF;
+        }
+        
+        body.dark-mode .search-result-item {
+            border-bottom-color: #262626;
+        }
+        
+        .search-result-item:hover {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        
+        body.dark-mode .search-result-item:hover {
+            background: rgba(255, 255, 255, 0.05);
         }
         
         /* DM */
@@ -661,6 +937,16 @@
             color: #FFFFFF;
         }
         
+        .audio-message {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .audio-message audio {
+            height: 36px;
+        }
+        
         .dm-input-area {
             display: flex;
             gap: 12px;
@@ -684,6 +970,80 @@
             background: #121212;
             border-color: #262626;
             color: #FFFFFF;
+        }
+        
+        .dm-icon-btn {
+            background: none;
+            border: none;
+            font-size: 22px;
+            cursor: pointer;
+            color: #0095f6;
+            padding: 8px;
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+        
+        .dm-icon-btn:hover {
+            background: rgba(0, 149, 246, 0.1);
+        }
+        
+        /* Recording Indicator */
+        .recording-indicator {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ed4956;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 40px;
+            z-index: 1100;
+            font-size: 14px;
+            display: none;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        /* Notifications */
+        .notification-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-bottom: 1px solid #EFEFEF;
+            cursor: pointer;
+        }
+        
+        .notification-item:hover {
+            background: rgba(0, 0, 0, 0.02);
+        }
+        
+        body.dark-mode .notification-item:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        
+        .notification-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            overflow: hidden;
+            background: linear-gradient(135deg, #f58529, #dd2a7b, #8134af);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .notification-content {
+            flex: 1;
+        }
+        
+        .notification-text {
+            font-size: 14px;
+        }
+        
+        .notification-time {
+            font-size: 11px;
+            color: #8e8e8e;
         }
         
         /* Toast */
@@ -730,6 +1090,7 @@
             color: #262626;
             cursor: pointer;
             transition: transform 0.2s;
+            position: relative;
         }
         
         body.dark-mode .nav-item {
@@ -838,7 +1199,9 @@
     <div class="header">
         <div class="logo">ZAMN</div>
         <div class="header-icons">
-            <i class="fa-regular fa-heart header-icon" onclick="openNotifications()"></i>
+            <div class="header-icon" id="notificationsIcon" onclick="openNotifications()" style="position: relative;">
+                <i class="fa-regular fa-heart"></i>
+            </div>
             <i class="fa-regular fa-message header-icon" onclick="openConversations()"></i>
             <i class="fa-regular fa-sun header-icon" onclick="toggleTheme()" id="themeIcon"></i>
         </div>
@@ -850,6 +1213,14 @@
         <div id="homeView" class="main-container">
             <!-- Stories -->
             <div class="stories-container" id="storiesList"></div>
+            
+            <!-- Search Bar -->
+            <div class="search-bar">
+                <input type="text" id="searchInput" class="search-input" placeholder="بحث عن مستخدمين أو هاشتاجات..." onkeyup="searchAll()">
+            </div>
+            
+            <!-- Search Results -->
+            <div id="searchResults" style="display: none;"></div>
             
             <!-- Posts Feed -->
             <div id="feedContainer"></div>
@@ -876,6 +1247,34 @@
     </div>
 </div>
 
+<!-- Story Viewer -->
+<div id="storyViewer" class="story-viewer">
+    <div class="story-viewer-header">
+        <div class="story-viewer-close" onclick="closeStoryViewer()">
+            <i class="fa-solid fa-xmark"></i>
+        </div>
+        <div></div>
+    </div>
+    <div class="story-viewer-progress">
+        <div class="story-viewer-progress-bar" id="storyProgressBar"></div>
+    </div>
+    <div class="story-viewer-content">
+        <img id="storyImage" class="story-viewer-media" style="display: none;">
+        <video id="storyVideo" class="story-viewer-media" controls style="display: none;"></video>
+    </div>
+</div>
+
+<!-- Media Viewer (Lightbox) -->
+<div id="mediaViewer" class="media-viewer" onclick="closeMediaViewer()">
+    <div class="media-viewer-close" onclick="closeMediaViewer()">
+        <i class="fa-solid fa-xmark"></i>
+    </div>
+    <div class="media-viewer-content" onclick="event.stopPropagation()">
+        <img id="viewerImage" src="" style="display: none;">
+        <video id="viewerVideo" src="" controls style="display: none;"></video>
+    </div>
+</div>
+
 <!-- Create Post Modal -->
 <div id="createPostModal" class="modal-overlay">
     <div class="modal-content">
@@ -896,7 +1295,7 @@
             <button class="profile-btn" style="width: 100%; margin-bottom: 12px;" onclick="document.getElementById('postVideoInput').click()">
                 <i class="fa-solid fa-video"></i> اختيار فيديو
             </button>
-            <textarea id="postCaption" class="create-post-input" placeholder="اكتب تعليقاً..."></textarea>
+            <textarea id="postCaption" class="create-post-input" placeholder="اكتب تعليقاً... (استخدم @ لمنشن مستخدم أو # لهاشتاج)"></textarea>
             <button class="profile-btn profile-btn-primary" style="width: 100%; margin-top: 12px;" onclick="createPost()">مشاركة</button>
         </div>
     </div>
@@ -913,6 +1312,20 @@
         <div class="comment-input">
             <input type="text" id="commentText" placeholder="أضف تعليقاً...">
             <button onclick="addComment()">نشر</button>
+        </div>
+    </div>
+</div>
+
+<!-- Reply Modal -->
+<div id="replyModal" class="modal-overlay">
+    <div class="modal-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="font-weight: 600;">رد على التعليق</h3>
+            <button onclick="closeReplyModal()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+        </div>
+        <div class="comment-input">
+            <input type="text" id="replyText" placeholder="اكتب ردك...">
+            <button onclick="addReply()">نشر</button>
         </div>
     </div>
 </div>
@@ -972,14 +1385,23 @@
         </div>
         <div id="chatMessages" class="dm-messages"></div>
         <div class="dm-input-area">
-            <button class="dm-send" onclick="document.getElementById('chatImageInput').click()" style="background: none; border: none; font-size: 20px; cursor: pointer;">
+            <button class="dm-icon-btn" onclick="document.getElementById('chatImageInput').click()">
                 <i class="fa-regular fa-image"></i>
+            </button>
+            <button class="dm-icon-btn" id="voiceRecordBtn" onclick="toggleVoiceRecording()">
+                <i class="fa-solid fa-microphone"></i>
             </button>
             <input type="file" id="chatImageInput" accept="image/*" style="display:none" onchange="sendChatImage(this)">
             <input type="text" id="chatInput" class="dm-input" placeholder="اكتب رسالة...">
             <button class="profile-btn profile-btn-primary" onclick="sendChatMessage()">إرسال</button>
         </div>
     </div>
+</div>
+
+<!-- Recording Indicator -->
+<div id="recordingIndicator" class="recording-indicator">
+    <i class="fa-solid fa-circle" style="font-size: 12px; animation: pulse 1s infinite;"></i>
+    <span>جاري التسجيل...</span>
 </div>
 
 <!-- Explore View -->
@@ -1010,6 +1432,35 @@
     </div>
 </div>
 
+<!-- Notifications Modal -->
+<div id="notificationsModal" class="modal-overlay">
+    <div class="modal-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="font-weight: 600;">الإشعارات</h3>
+            <button onclick="closeNotificationsModal()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+        </div>
+        <div id="notificationsList"></div>
+    </div>
+</div>
+
+<!-- Report Modal -->
+<div id="reportModal" class="modal-overlay">
+    <div class="modal-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="font-weight: 600;">🚨 الإبلاغ عن منشور</h3>
+            <button onclick="closeReportModal()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+        </div>
+        <div id="reportReasons">
+            <div class="report-reason" onclick="selectReportReason('محتوى غير لائق')" style="padding: 12px; margin: 8px 0; background: #EFEFEF; border-radius: 12px; cursor: pointer;">محتوى غير لائق</div>
+            <div class="report-reason" onclick="selectReportReason('تحرش')" style="padding: 12px; margin: 8px 0; background: #EFEFEF; border-radius: 12px; cursor: pointer;">تحرش</div>
+            <div class="report-reason" onclick="selectReportReason('عنف')" style="padding: 12px; margin: 8px 0; background: #EFEFEF; border-radius: 12px; cursor: pointer;">عنف</div>
+            <div class="report-reason" onclick="selectReportReason('سب وقذف')" style="padding: 12px; margin: 8px 0; background: #EFEFEF; border-radius: 12px; cursor: pointer;">سب وقذف</div>
+            <div class="report-reason" onclick="selectReportReason('انتحال شخصية')" style="padding: 12px; margin: 8px 0; background: #EFEFEF; border-radius: 12px; cursor: pointer;">انتحال شخصية</div>
+        </div>
+        <button class="profile-btn profile-btn-primary" style="width: 100%; margin-top: 16px;" onclick="submitReport()">إرسال البلاغ</button>
+    </div>
+</div>
+
 <!-- Admin Panel -->
 <div id="adminPanel" class="modal-overlay">
     <div class="modal-content" style="max-width: 600px;">
@@ -1032,6 +1483,10 @@
         <div>
             <h4 style="font-weight: 600; margin-bottom: 12px;">👥 إدارة المستخدمين</h4>
             <div id="adminUsersList"></div>
+        </div>
+        <div style="margin-top: 20px;">
+            <h4 style="font-weight: 600; margin-bottom: 12px;">📊 التقارير</h4>
+            <div id="adminReportsList"></div>
         </div>
     </div>
 </div>
